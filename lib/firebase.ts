@@ -13,9 +13,14 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+// 빌드/SSR 시점에 env vars 없으면 lazy 초기화 (런타임에서만 init)
+const isConfigured = !!firebaseConfig.apiKey;
 
-export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
-export const storage: FirebaseStorage = getStorage(app);
+const app: FirebaseApp | undefined = isConfigured
+  ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
+  : undefined;
+
+export const auth = (app ? getAuth(app) : (undefined as any)) as Auth;
+export const db = (app ? getFirestore(app) : (undefined as any)) as Firestore;
+export const storage = (app ? getStorage(app) : (undefined as any)) as FirebaseStorage;
 export { app };
