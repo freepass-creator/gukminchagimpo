@@ -1,0 +1,50 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fafafa;
+  --bg-muted: #f4f4f5;
+  --border: #e4e4e7;
+  --border-soft: #f1f1f3;
+  --ink: #09090b;
+  --ink-soft: #52525b;
+  --muted: #71717a;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warn: #dc2626;
+  --warn-soft: #fef2f2;
+  --alert: #d97706;
+  --alert-soft: #fffbeb;
+  --reserved: #ea580c;
+  --reserved-soft: #fff7ed;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-feature-settings: 'tnum' on, 'ss05' on;
+  -webkit-font-smoothing: antialiased;
+  color: var(--ink);
+  background: var(--bg);
+  letter-spacing: -0.005em;
+}
+
+/* tabular numerals for any numeric class */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* hide scrollbar in firefox */
+* { scrollbar-width: thin; scrollbar-color: #d4d4d8 transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* selection */
+::selection { background: var(--accent); color: #fff; }

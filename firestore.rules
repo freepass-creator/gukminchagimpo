@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// 본 시스템 Firestore 보안 규칙
+// 원칙: 인증된 사용자만 read/write. 추후 단지 관리자 role(users/{uid}/role)로 강화.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 인증된 사용자는 모든 운영 컬렉션 접근 가능 (초기 단계)
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    match /stalls/{id}      { allow read, write: if isAuthed(); }
+    match /tenants/{id}     { allow read, write: if isAuthed(); }
+    match /leases/{id}      { allow read, write: if isAuthed(); }
+    match /billings/{id}    { allow read, write: if isAuthed(); }
+    match /payments/{id}    { allow read, write: if isAuthed(); }
+    match /audit_logs/{id}  { allow read, create: if isAuthed(); }
+    match /config/{id}      { allow read, write: if isAuthed(); }
+
+    // 사용자 자기 자신 정보 (추후 role 부여 시 사용)
+    match /users/{uid} {
+      allow read: if isAuthed();
+      allow write: if isAuthed() && request.auth.uid == uid;
+    }
+  }
+}

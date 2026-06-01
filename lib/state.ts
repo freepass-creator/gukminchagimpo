@@ -1,0 +1,223 @@
+import type {
+  Stall,
+  Lease,
+  Billing,
+  StallState,
+  Config,
+  Floor,
+} from './types';
+import { daysBetween } from './utils';
+
+export const STATE_LABEL: Record<StallState, string> = {
+  vacant: '공실',
+  active: '계약중·정상',
+  overdue: '계약중·연체',
+  expiring: '만료예정',
+  reserved: '입점예정',
+};
+
+export const STATE_TONE: Record<StallState, string> = {
+  vacant: 'bg-zinc-100 text-zinc-600 border-zinc-200',
+  active: 'bg-green-50 text-green-700 border-green-200',
+  overdue: 'bg-red-50 text-red-700 border-red-200',
+  expiring: 'bg-amber-50 text-amber-700 border-amber-200',
+  reserved: 'bg-orange-50 text-orange-700 border-orange-200',
+};
+
+export interface StallStateResult {
+  state: StallState;
+  lease: Lease | null;
+  futureLease?: Lease;
+}
+
+/**
+ * 공간 상태 산출 — 계약·미수·일자로 실시간 자동 판단.
+ * 별도 필드 저장이 아니라 derived state.
+ */
+export function getStallState(
+  stallId: string,
+  leases: Lease[],
+  billings: Billing[],
+  config: Config,
+  today: Date = new Date()
+): StallStateResult {
+  const activeLeases = leases.filter((l) => l.stall_ids.includes(stallId));
+
+  const current = activeLeases.find(
+    (l) =>
+      l.status === 'active' &&
+      new Date(l.start) <= today &&
+      new Date(l.end) >= today
+  );
+
+  const future = activeLeases
+    .filter((l) => l.status === 'active' && new Date(l.start) > today)
+    .sort((a, b) => a.start.localeCompare(b.start))[0];
+
+  if (!current) {
+    if (future) return { state: 'reserved', lease: future, futureLease: future };
+    return { state: 'vacant', lease: null };
+  }
+
+  // 미수 확인
+  const owed = billings
+    .filter((b) => b.lease_id === current.id)
+    .some((b) => b.total > (b.paid_amount || 0) && new Date(b.due_date) < today);
+  if (owed) return { state: 'overdue', lease: current, futureLease: future };
+
+  // 만료 임박
+  const daysToExpire = daysBetween(today, current.end);
+  if (daysToExpire <= config.expiring_threshold_days) {
+    return { state: 'expiring', lease: current, futureLease: future };
+  }
+
+  return { state: 'active', lease: current, futureLease: future };
+}
+
+/** 한 공간에 신규 계약 시 기간 충돌 검사 */
+export function findConflicts(
+  stallIds: string[],
+  start: string,
+  end: string,
+  leases: Lease[]
+): { stallId: string; lease: Lease }[] {
+  const conflicts: { stallId: string; lease: Lease }[] = [];
+  for (const sid of stallIds) {
+    const overlap = leases.filter(
+      (l) =>
+        l.status === 'active' &&
+        l.stall_ids.includes(sid) &&
+        !(new Date(l.end) < new Date(start) || new Date(l.start) > new Date(end))
+    );
+    overlap.forEach((l) => conflicts.push({ stallId: sid, lease: l }));
+  }
+  return conflicts;
+}
+
+/** 특정 공간이 어느 시점에 비는지 */
+export function nextVacantDate(
+  stallId: string,
+  leases: Lease[],
+  today: Date = new Date()
+): string | null {
+  const current = leases.find(
+    (l) =>
+      l.status === 'active' &&
+      l.stall_ids.includes(stallId) &&
+      new Date(l.start) <= today &&
+      new Date(l.end) >= today
+  );
+  if (!current) return null;
+  return current.end;
+}
+
+/**
+ * 같은 층의 다른 공간과 겹치는지 검사.
+ * - 자기 자신은 제외 (이동·리사이즈 시 자기 자신 자리 OK)
+ * - AABB(축 정렬 사각형) 겹침 판정
+ */
+export function wouldOverlap(
+  stallId: string | null,
+  floorId: string,
+  layout: { x: number; y: number; w: number; h: number },
+  stalls: Stall[]
+): { conflict: boolean; with?: string } {
+  for (const s of stalls) {
+    if (s.id === stallId) continue;
+    if (s.floor_id !== floorId) continue;
+    if (!s.layout) continue;
+    const a = layout;
+    const b = s.layout;
+    if (
+      a.x < b.x + b.w &&
+      a.x + a.w > b.x &&
+      a.y < b.y + b.h &&
+      a.y + a.h > b.y
+    ) {
+      return { conflict: true, with: s.id };
+    }
+  }
+  return { conflict: false };
+}
+
+/** 그리드 안에서 w×h 들어갈 빈 자리 찾기 */
+export function findFreeSlot(
+  floor: Floor,
+  stalls: Stall[],
+  w: number,
+  h: number,
+  startAfter?: { x: number; y: number }
+): { x: number; y: number } | null {
+  const occupied = new Set<string>();
+  for (const s of stalls.filter((x) => x.floor_id === floor.id && x.layout)) {
+    const { x, y, w: sw, h: sh } = s.layout!;
+    for (let dx = 0; dx < sw; dx++)
+      for (let dy = 0; dy < sh; dy++) occupied.add(`${x + dx},${y + dy}`);
+  }
+  const sx = startAfter?.x ?? 0;
+  const sy = startAfter?.y ?? 0;
+  for (let y = sy; y <= floor.grid_rows - h; y++) {
+    for (let x = (y === sy ? sx : 0); x <= floor.grid_cols - w; x++) {
+      let free = true;
+      outer:
+      for (let dx = 0; dx < w; dx++)
+        for (let dy = 0; dy < h; dy++)
+          if (occupied.has(`${x + dx},${y + dy}`)) { free = false; break outer; }
+      if (free) return { x, y };
+    }
+  }
+  return null;
+}
+
+/**
+ * 빈 자리 + 그리드 자동 확장 fallback.
+ * - 현 그리드 안에 빈 자리 있으면 그대로
+ * - 없으면 우측에 박스 한 줄 추가하고 그 자리에 배치
+ */
+export function findSlotOrExpand(
+  floor: Floor,
+  stalls: Stall[],
+  w: number,
+  h: number,
+  startAfter?: { x: number; y: number }
+): { slot: { x: number; y: number }; expand: { grid_cols?: number; grid_rows?: number } | null } {
+  const slot = findFreeSlot(floor, stalls, w, h, startAfter);
+  if (slot) return { slot, expand: null };
+  // 우측 확장
+  return {
+    slot: { x: floor.grid_cols, y: 0 },
+    expand: { grid_cols: floor.grid_cols + w + 1 },
+  };
+}
+
+/** 특정 layout이 그리드 벗어나면 확장값 반환 (벗어나지 않으면 null) */
+export function expandToFit(
+  floor: Floor,
+  layout: { x: number; y: number; w: number; h: number }
+): { grid_cols?: number; grid_rows?: number } | null {
+  const newCols = layout.x + layout.w > floor.grid_cols ? layout.x + layout.w : floor.grid_cols;
+  const newRows = layout.y + layout.h > floor.grid_rows ? layout.y + layout.h : floor.grid_rows;
+  if (newCols === floor.grid_cols && newRows === floor.grid_rows) return null;
+  const patch: { grid_cols?: number; grid_rows?: number } = {};
+  if (newCols !== floor.grid_cols) patch.grid_cols = newCols;
+  if (newRows !== floor.grid_rows) patch.grid_rows = newRows;
+  return patch;
+}
+
+/** 특정 공간이 특정 월에 누구에게 점유되어 있는지 */
+export function getLeaseForMonth(
+  stallId: string,
+  monthStart: Date,
+  monthEnd: Date,
+  leases: Lease[]
+): Lease | null {
+  return (
+    leases.find(
+      (l) =>
+        l.status === 'active' &&
+        l.stall_ids.includes(stallId) &&
+        new Date(l.start) <= monthEnd &&
+        new Date(l.end) >= monthStart
+    ) || null
+  );
+}
