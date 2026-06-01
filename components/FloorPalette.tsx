@@ -301,7 +301,7 @@ export function FloorPalette({
     setBusy(true);
     try {
       const sectionId = `SEC-${Date.now().toString(36)}`;
-      const color = SECTION_COLORS[(nextNum - 1) % SECTION_COLORS.length];
+      const color = SECTION_COLORS[sections.length % SECTION_COLORS.length];
 
       const totalRent = parkingOnly.reduce((s, x) => s + x.rent, 0);
       const totalMaint = parkingOnly.reduce((s, x) => s + x.maint, 0);

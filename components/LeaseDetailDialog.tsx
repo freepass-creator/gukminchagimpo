@@ -245,7 +245,7 @@ export function LeaseDetailDialog({ open, onClose, leaseId }: Props) {
             officeStalls.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {officeStalls.map((s) => {
-                  const f = byId.floor.get(s.floor_id);
+                  const f = s.floor_id ? byId.floor.get(s.floor_id) : undefined;
                   return (
                     <span key={s.id} className="inline-block px-2 py-0.5 rounded border bg-blue-50 border-blue-300 text-blue-800 text-[11.5px] font-medium">
                       {f?.building}동 {s.code}호

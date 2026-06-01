@@ -113,7 +113,7 @@ export default function LeasesPage() {
       // section에 안 묶인 개별 주차칸 → 층별 '개별' 묶음
       for (const id of l.stall_ids) {
         const s = byId.stall.get(id);
-        if (!s || s.type !== 'parking') continue;
+        if (!s || s.type !== 'parking' || !s.floor_id) continue;
         if (handledStallIds.has(s.id)) continue;
         const key = `loose-${s.floor_id}`;
         const f = byId.floor.get(s.floor_id);
@@ -148,7 +148,7 @@ export default function LeasesPage() {
       // 정렬키: 첫 사무실 코드 → 없으면 첫 섹션
       const firstOffice = officeStalls[0];
       const firstFloor = firstOffice
-        ? byId.floor.get(firstOffice.floor_id)
+        ? (firstOffice.floor_id ? byId.floor.get(firstOffice.floor_id) : undefined)
         : byId.floor.get(byId.section.get(l.section_ids?.[0] || '')?.floor_id || '');
       const flbl = firstFloor ? floorLabel(firstFloor) : '?';
       const sortKey = `${String(firstFloor?.order ?? 99).padStart(2, '0')}-${firstOffice?.code || 'Z' + (l.section_ids?.[0] || '')}`;
@@ -172,6 +172,7 @@ export default function LeasesPage() {
     for (const s of stalls) {
       if (s.type !== 'office') continue;
       if (occupiedOfficeIds.has(s.id)) continue;
+      if (!s.floor_id) continue;
       const f = byId.floor.get(s.floor_id);
       if (!f) continue;
       out.push({

@@ -78,8 +78,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       collectionGetter: () => any,
       setter: (arr: any[]) => void
     ) => {
-      return onSnapshot(collectionGetter(), (snap) => {
-        setter(snap.docs.map((d) => ({ ...(d.data() as any), id: d.id })));
+      return onSnapshot(collectionGetter(), (snap: any) => {
+        setter(snap.docs.map((d: any) => ({ ...(d.data() as any), id: d.id })));
         setLoadingCount((n) => Math.max(0, n - 1));
       });
     };

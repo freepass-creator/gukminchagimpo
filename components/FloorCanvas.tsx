@@ -141,14 +141,14 @@ export function FloorCanvas({
     onSelect(null, false);
   }
 
-  function startResize(e: MouseEvent<SVGRectElement>, stall: Stall, axis: 'br' | 'right' | 'bottom') {
+  function startResize(e: MouseEvent<SVGElement>, stall: Stall, axis: 'br' | 'right' | 'bottom') {
     if (mode !== 'edit' || !stall.layout) return;
     e.stopPropagation();
     setResize({ id: stall.id, isDecor: false, axis });
     onSelect(stall.id, false);
   }
 
-  function startResizeDecor(e: MouseEvent<SVGRectElement>, d: Decor, axis: 'br' | 'right' | 'bottom') {
+  function startResizeDecor(e: MouseEvent<SVGElement>, d: Decor, axis: 'br' | 'right' | 'bottom') {
     if (mode !== 'edit') return;
     e.stopPropagation();
     setResize({ id: d.id, isDecor: true, axis });
@@ -543,6 +543,7 @@ export function FloorCanvas({
           display: 'block',
           margin: '0 auto',
           overflow: 'visible',
+          cursor: placement ? 'crosshair' : undefined,
         }}
         onMouseMove={handleMove}
         onMouseUp={endInteraction}
@@ -568,7 +569,6 @@ export function FloorCanvas({
           }
           handleContextMenu(e, null);
         }}
-        style={{ cursor: placement ? 'crosshair' : undefined }}
       >
         {/* 배경 */}
         <rect x="0" y="0" width={W} height={H} fill="#fafafa" />
