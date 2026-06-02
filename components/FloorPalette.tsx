@@ -37,7 +37,7 @@ export function FloorPalette({
   floor, selectedStallIds, onSelect, mode = 'view',
   selectedCell, onConsumeCell,
 }: Props) {
-  const { stalls, leases, billings, tenants, config, today, sections } = useData();
+  const { stalls, leases, billings, tenants, config, today, sections, decors } = useData();
   const { user, isAdmin } = useAuth();
   const [busy, setBusy] = useState(false);
   const canEdit = mode === 'edit';
@@ -60,8 +60,11 @@ export function FloorPalette({
         if (needCols !== floor.grid_cols || needRows !== floor.grid_rows) {
           await updateFloor(floor.id, { grid_cols: needCols, grid_rows: needRows });
         }
-        const { conflict } = wouldOverlap(null, floor.id, { x: slot.x, y: slot.y, w, h }, stalls);
-        if (conflict) { toast.error('이 위치에 다른 박스가 있어 추가 불가'); return; }
+        const { conflict, kind } = wouldOverlap(null, floor.id, { x: slot.x, y: slot.y, w, h }, stalls, decors);
+        if (conflict) {
+          toast.error(kind === 'decor' ? '시설물(기둥·램프 등) 자리에는 배치 불가' : '이 위치에 다른 박스가 있어 추가 불가');
+          return;
+        }
         onConsumeCell?.();
       } else {
         const result = findSlotOrExpand(floor, stalls, w, h);
@@ -159,8 +162,11 @@ export function FloorPalette({
       h: Math.max(1, Math.min(floor.grid_rows - single.layout.y, single.layout.h + (diff.dh || 0))),
       rotation: single.layout.rotation,
     };
-    const { conflict, with: cw } = wouldOverlap(single.id, floor.id, next, stalls);
-    if (conflict) { toast.error(`${cw}와 겹쳐서 불가`); return; }
+    const { conflict, with: cw, kind } = wouldOverlap(single.id, floor.id, next, stalls, decors);
+    if (conflict) {
+      toast.error(kind === 'decor' ? '시설물과 겹쳐서 불가' : `${cw}와 겹쳐서 불가`);
+      return;
+    }
     await updateStall(single.id, { layout: next });
   }
 
@@ -180,8 +186,11 @@ export function FloorPalette({
       await updateFloor(floor.id, expand);
       toast.info(`그리드 자동 확장: ${expand.grid_cols ?? floor.grid_cols} × ${expand.grid_rows ?? floor.grid_rows}`);
     }
-    const { conflict, with: cw } = wouldOverlap(single.id, floor.id, next, stalls);
-    if (conflict) { toast.error(`회전 시 ${cw}와 겹쳐서 불가`); return; }
+    const { conflict, with: cw, kind } = wouldOverlap(single.id, floor.id, next, stalls, decors);
+    if (conflict) {
+      toast.error(kind === 'decor' ? '회전 시 시설물과 겹쳐서 불가' : `회전 시 ${cw}와 겹쳐서 불가`);
+      return;
+    }
     await updateStall(single.id, { layout: next });
   }
 

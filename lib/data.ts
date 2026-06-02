@@ -24,6 +24,7 @@ import type {
   Decor,
   ParkingSection,
   BankTransaction,
+  TempParkingAssignment,
 } from './types';
 import { DEFAULT_CONFIG } from './types';
 
@@ -39,6 +40,7 @@ export const col = {
   decors: () => collection(db, 'decors'),
   sections: () => collection(db, 'parking_sections'),
   bankTx: () => collection(db, 'bank_transactions'),
+  tempAssignments: () => collection(db, 'temp_assignments'),
   config: () => doc(db, 'config', 'main'),
 };
 
@@ -107,6 +109,13 @@ export const saveBankTx = (t: BankTransaction) => saveDoc('bank_transactions', t
 export const removeBankTx = (id: string) => deleteDoc(doc(db, 'bank_transactions', id));
 export async function updateBankTx(id: string, patch: Partial<BankTransaction>): Promise<void> {
   await updateDoc(doc(db, 'bank_transactions', id), patch as any);
+}
+
+/* ─── Temp Parking Assignment ─── */
+export const saveTempAssignment = (a: TempParkingAssignment) => saveDoc('temp_assignments', a);
+export const removeTempAssignment = (id: string) => deleteDoc(doc(db, 'temp_assignments', id));
+export async function updateTempAssignment(id: string, patch: Partial<TempParkingAssignment>): Promise<void> {
+  await updateDoc(doc(db, 'temp_assignments', id), patch as any);
 }
 
 /* ─── Tenant ─── */

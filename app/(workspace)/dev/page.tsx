@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Database, AlertTriangle, ShieldX, Crown, FileCode, Trash2 } from 'lucide-react';
+import { Database, AlertTriangle, ShieldX, Crown, FileCode, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardHeader, CardBody } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { MigrationDialog } from '@/components/MigrationDialog';
 import { runSeed } from '@/lib/seed';
 import { wipeCollection } from '@/lib/data';
 
@@ -13,6 +14,7 @@ export default function DevToolsPage() {
   const { user, isAdmin } = useAuth();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ created: number; today: string } | null>(null);
+  const [openMigration, setOpenMigration] = useState(false);
 
   if (!isAdmin) {
     return (
@@ -98,6 +100,28 @@ export default function DevToolsPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* 마이그레이션 */}
+      <Card>
+        <CardHeader
+          title="임대 현황·미수금 일괄 마이그레이션"
+          desc="신규 운영 시작 시 기존 상사·계약·이월 미수금을 엑셀로 한 번에 업로드"
+          action={<Upload className="w-4 h-4 text-zinc-400" />}
+        />
+        <CardBody>
+          <ul className="text-[12.5px] text-zinc-700 space-y-1.5 mb-4">
+            <li>· 엑셀 컬럼: 상사명 · 사업자번호 · 대표 · 전화 · 사무실호수 · 블럭코드 · 시작일 · 종료일 · 월세 · 관리비 · 보증금 · 이월미수금</li>
+            <li>· 상사 자동 매칭 (없으면 자동 생성)</li>
+            <li>· 이월 미수금은 'open' 청구로 등록 → 미수 관리에 즉시 반영</li>
+            <li>· 검증 단계에서 오류 행은 제외</li>
+          </ul>
+          <Button variant="primary" onClick={() => setOpenMigration(true)} disabled={busy}>
+            <Upload className="w-3.5 h-3.5" /> 마이그레이션 시작
+          </Button>
+        </CardBody>
+      </Card>
+
+      <MigrationDialog open={openMigration} onClose={() => setOpenMigration(false)} />
 
       {/* 전체 삭제 */}
       <Card>

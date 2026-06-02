@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Modal } from './Modal';
 import { Button } from './Button';
@@ -28,7 +29,14 @@ interface Props {
 export function LeaseDetailDialog({ open, onClose, leaseId }: Props) {
   const { leases, tenants, stalls, billings, payments, config, today, byId, index } = useData();
   const { user } = useAuth();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
+
+  function goToFloor(floorId: string | undefined) {
+    if (!floorId) return;
+    onClose();
+    router.push(`/map?floor=${encodeURIComponent(floorId)}`);
+  }
 
   if (!leaseId) return null;
   const lease = leases.find((l) => l.id === leaseId);
@@ -246,10 +254,16 @@ export function LeaseDetailDialog({ open, onClose, leaseId }: Props) {
               <div className="flex flex-wrap gap-1.5">
                 {officeStalls.map((s) => {
                   const f = s.floor_id ? byId.floor.get(s.floor_id) : undefined;
+                  const floorTxt = f ? f.label.replace(/\s*\([^)]*\)/, '') : '';
                   return (
-                    <span key={s.id} className="inline-block px-2 py-0.5 rounded border bg-blue-50 border-blue-300 text-blue-800 text-[11.5px] font-medium">
-                      {f?.building}동 {s.code}호
-                    </span>
+                    <button
+                      key={s.id}
+                      onClick={() => goToFloor(s.floor_id)}
+                      title="도면으로 이동"
+                      className="inline-block px-2 py-0.5 rounded border bg-blue-50 border-blue-300 text-blue-800 text-[11.5px] font-medium hover:bg-blue-100 transition"
+                    >
+                      {f?.building}동 {floorTxt} {s.code}호
+                    </button>
                   );
                 })}
               </div>
@@ -263,10 +277,16 @@ export function LeaseDetailDialog({ open, onClose, leaseId }: Props) {
               <div className="flex flex-wrap gap-1.5 items-center">
                 {sectionsUsed.map(({ section, count }) => {
                   const f = byId.floor.get(section.floor_id);
+                  const floorTxt = f ? f.label.replace(/\s*\([^)]*\)/, '') : '';
                   return (
-                    <span key={section.id} className="inline-block px-2 py-0.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-[11.5px] font-medium">
-                      {f?.building}동 {section.name} <span className="tabular font-semibold">{count}면</span>
-                    </span>
+                    <button
+                      key={section.id}
+                      onClick={() => goToFloor(section.floor_id)}
+                      title="도면으로 이동"
+                      className="inline-block px-2 py-0.5 rounded border bg-amber-50 border-amber-300 text-amber-800 text-[11.5px] font-medium hover:bg-amber-100 transition"
+                    >
+                      {f?.building}동 {floorTxt} {section.name} <span className="tabular font-semibold">{count}면</span>
+                    </button>
                   );
                 })}
                 <span className="text-[11.5px] text-zinc-600 ml-1">

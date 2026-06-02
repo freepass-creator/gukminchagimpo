@@ -5,6 +5,7 @@ import type {
   StallState,
   Config,
   Floor,
+  Decor,
 } from './types';
 import { daysBetween } from './utils';
 
@@ -120,8 +121,10 @@ export function wouldOverlap(
   stallId: string | null,
   floorId: string,
   layout: { x: number; y: number; w: number; h: number },
-  stalls: Stall[]
-): { conflict: boolean; with?: string } {
+  stalls: Stall[],
+  decors?: Decor[]
+): { conflict: boolean; with?: string; kind?: 'stall' | 'decor' } {
+  // 다른 stall과 겹침
   for (const s of stalls) {
     if (s.id === stallId) continue;
     if (s.floor_id !== floorId) continue;
@@ -134,7 +137,23 @@ export function wouldOverlap(
       a.y < b.y + b.h &&
       a.y + a.h > b.y
     ) {
-      return { conflict: true, with: s.id };
+      return { conflict: true, with: s.id, kind: 'stall' };
+    }
+  }
+  // 시설물(decor)과 겹침 — 기둥·램프 등 통과 불가 시설
+  if (decors) {
+    for (const d of decors) {
+      if (d.floor_id !== floorId) continue;
+      const a = layout;
+      const b = d.layout;
+      if (
+        a.x < b.x + b.w &&
+        a.x + a.w > b.x &&
+        a.y < b.y + b.h &&
+        a.y + a.h > b.y
+      ) {
+        return { conflict: true, with: d.id, kind: 'decor' };
+      }
     }
   }
   return { conflict: false };
@@ -146,13 +165,22 @@ export function findFreeSlot(
   stalls: Stall[],
   w: number,
   h: number,
-  startAfter?: { x: number; y: number }
+  startAfter?: { x: number; y: number },
+  decors?: Decor[]
 ): { x: number; y: number } | null {
   const occupied = new Set<string>();
   for (const s of stalls.filter((x) => x.floor_id === floor.id && x.layout)) {
     const { x, y, w: sw, h: sh } = s.layout!;
     for (let dx = 0; dx < sw; dx++)
       for (let dy = 0; dy < sh; dy++) occupied.add(`${x + dx},${y + dy}`);
+  }
+  // 시설물 셀도 점유로 처리
+  if (decors) {
+    for (const d of decors.filter((x) => x.floor_id === floor.id)) {
+      const { x, y, w: dw, h: dh } = d.layout;
+      for (let dx = 0; dx < dw; dx++)
+        for (let dy = 0; dy < dh; dy++) occupied.add(`${x + dx},${y + dy}`);
+    }
   }
   const sx = startAfter?.x ?? 0;
   const sy = startAfter?.y ?? 0;

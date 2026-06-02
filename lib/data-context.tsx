@@ -12,7 +12,7 @@ import { onSnapshot, query, orderBy } from 'firebase/firestore';
 import { col } from './data';
 import { db } from './firebase';
 import { doc, onSnapshot as docSnap } from 'firebase/firestore';
-import type { Stall, Tenant, Lease, Billing, Payment, Config, Floor, Decor, ParkingSection, BankTransaction } from './types';
+import type { Stall, Tenant, Lease, Billing, Payment, Config, Floor, Decor, ParkingSection, BankTransaction, TempParkingAssignment } from './types';
 import { DEFAULT_CONFIG } from './types';
 
 interface DataCtx {
@@ -25,6 +25,7 @@ interface DataCtx {
   decors: Decor[];
   sections: ParkingSection[];
   bankTx: BankTransaction[];
+  tempAssignments: TempParkingAssignment[];
   config: Config;
   loading: boolean;
   today: Date;
@@ -70,8 +71,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [decors, setDecors] = useState<Decor[]>([]);
   const [sections, setSections] = useState<ParkingSection[]>([]);
   const [bankTx, setBankTx] = useState<BankTransaction[]>([]);
+  const [tempAssignments, setTempAssignments] = useState<TempParkingAssignment[]>([]);
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
-  const [loadingCount, setLoadingCount] = useState(10);
+  const [loadingCount, setLoadingCount] = useState(11);
 
   useEffect(() => {
     const sub = (
@@ -94,6 +96,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sub(col.decors, setDecors),
       sub(col.sections, setSections),
       sub(col.bankTx, setBankTx),
+      sub(col.tempAssignments, setTempAssignments),
     ];
 
     const unsubConfig = docSnap(col.config(), (snap) => {
@@ -166,13 +169,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       decors,
       sections,
       bankTx,
+      tempAssignments,
       config,
       loading: loadingCount > 0,
       today: DEMO_TODAY,
       byId,
       index,
     }),
-    [stalls, tenants, leases, billings, payments, floors, decors, sections, bankTx, config, loadingCount, byId, index]
+    [stalls, tenants, leases, billings, payments, floors, decors, sections, bankTx, tempAssignments, config, loadingCount, byId, index]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

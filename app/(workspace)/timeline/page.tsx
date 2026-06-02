@@ -49,7 +49,7 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col h-full space-y-5">
       <PageHeader
         title="가용성 스케줄"
         subtitle="미래 8개월 · 동별 층별로 사무실 N개 / 주차 N대 중 몇 개가 비는지 한눈에"

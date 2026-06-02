@@ -66,6 +66,8 @@ export interface Tenant {
   ceo: string;
   phone: string;
   deposit_paid: number;
+  /** 상사 본인 조회용 비밀번호 — 보안 강도 낮음 (개인정보 X) */
+  password?: string;
   memo?: string;
   created_at?: Timestamp;
 }
@@ -88,6 +90,26 @@ export interface Lease {
   signed_at?: string;
   terminated_at?: string;
   renewed_from?: string;
+  memo?: string;
+  created_at?: Timestamp;
+}
+
+/**
+ * 임시 전시장 배정 — 기존 전시장 공실 일부를 일정 기간 동안 상사에게 배정.
+ * 정규 lease와 독립적으로 활성 기간만 임대 현황·청구에 반영됨.
+ */
+export interface TempParkingAssignment {
+  id: string;
+  tenant_id: string;
+  /** 연결된 정규 lease (옵션) — 같은 상사의 정규 임대와 묶고 싶을 때 */
+  lease_id?: string;
+  /** 임시 사용 stall_id 목록 (parking type만) */
+  stall_ids: string[];
+  start: string;          // 'YYYY-MM-DD'
+  end: string;
+  /** 월 사용료 (해당 기간 동안 청구에 추가) */
+  rent: number;
+  status: 'active' | 'ended';
   memo?: string;
   created_at?: Timestamp;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Play } from 'lucide-react';
+import { Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/Button';
@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/list/PageHeader';
 import { ListToolbar } from '@/components/list/ListToolbar';
 import { DataCard, stdTheadCls, thCls } from '@/components/list/DataCard';
 import { StateBadge, type BadgeTone } from '@/components/list/StateBadge';
+import { BillingDetailDialog } from '@/components/BillingDetailDialog';
 import { saveBilling, writeAudit } from '@/lib/data';
 import { addMonths, fmtMoney, fmtPeriod, fmtDate, daysBetween } from '@/lib/utils';
 import type { Billing, Tenant, BankTransaction } from '@/lib/types';
@@ -44,15 +45,104 @@ interface Row {
   state: BillState;
 }
 
+function MatrixView({
+  tenants,
+  periods,
+  billings,
+  onClickCell,
+}: {
+  tenants: Tenant[];
+  periods: string[];
+  billings: Billing[];
+  onClickCell: (billingId: string) => void;
+}) {
+  return (
+    <DataCard scrollX>
+      <table className="w-full text-[12px]">
+        <thead className={stdTheadCls}>
+          <tr>
+            <th className={`${thCls.left} sticky left-0 bg-zinc-50/95 z-20 whitespace-nowrap`}>상사</th>
+            {periods.map((p) => (
+              <th key={p} className="text-center py-2.5 px-3 font-semibold whitespace-nowrap tabular">{p}</th>
+            ))}
+            <th className={thCls.right}>누적 청구</th>
+            <th className={thCls.right}>누적 수납</th>
+            <th className={thCls.right}>누적 미수</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tenants.map((t) => {
+            const tBills = billings.filter((b) => b.tenant_id === t.id);
+            const totalCharged = tBills.reduce((s, b) => s + b.total, 0);
+            const totalPaid = tBills.reduce((s, b) => s + (b.paid_amount || 0), 0);
+            const totalOwe = totalCharged - totalPaid;
+            return (
+              <tr key={t.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50 align-middle">
+                <td className="py-2.5 px-4 font-semibold sticky left-0 bg-white z-10 whitespace-nowrap">
+                  <div>{t.name}</div>
+                  <div className="text-[10.5px] text-zinc-500 tabular font-normal">{t.biz_no}</div>
+                </td>
+                {periods.map((p) => {
+                  const b = billings.find((x) => x.tenant_id === t.id && x.period === p);
+                  if (!b) {
+                    return (
+                      <td key={p} className="text-center text-zinc-300 py-2.5 px-3">—</td>
+                    );
+                  }
+                  const paid = b.paid_amount || 0;
+                  const owe = b.total - paid;
+                  return (
+                    <td
+                      key={p}
+                      onClick={() => onClickCell(b.id)}
+                      className="text-center py-2 px-3 tabular cursor-pointer hover:bg-zinc-100/60 whitespace-nowrap"
+                    >
+                      <div className="text-zinc-800 font-semibold leading-tight">{fmtMoney(b.total)}</div>
+                      <div className="text-[10.5px] text-green-700 leading-tight">+{fmtMoney(paid)}</div>
+                      <div className={`text-[10.5px] leading-tight ${owe > 0 ? 'text-red-600 font-bold' : 'text-zinc-400'}`}>
+                        {owe > 0 ? `-${fmtMoney(owe)}` : '완납'}
+                      </div>
+                    </td>
+                  );
+                })}
+                <td className="py-2.5 px-4 text-right tabular font-semibold">{fmtMoney(totalCharged)}</td>
+                <td className="py-2.5 px-4 text-right tabular text-green-700">{fmtMoney(totalPaid)}</td>
+                <td className={`py-2.5 px-4 text-right tabular ${totalOwe > 0 ? 'text-red-600 font-bold' : 'text-zinc-400'}`}>
+                  {totalOwe > 0 ? fmtMoney(totalOwe) : '—'}
+                </td>
+              </tr>
+            );
+          })}
+          {tenants.length === 0 && (
+            <tr>
+              <td colSpan={periods.length + 4} className="text-center py-10 text-zinc-400 text-[12px]">
+                해당하는 상사가 없습니다.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </DataCard>
+  );
+}
+
 export default function BillingsPage() {
   const { tenants, leases, billings, bankTx, byId, today } = useData();
   const { user } = useAuth();
   const [running, setRunning] = useState(false);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | BillState>('all');
+  const [openDetail, setOpenDetail] = useState<string | null>(null);
 
   const todayStr = fmtDate(today);
   const curPeriod = fmtPeriod(today);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(curPeriod);
+
+  function changeMonth(delta: number) {
+    const [y, m] = selectedPeriod.split('-').map(Number);
+    const d = addMonths(new Date(y, m - 1, 1), delta);
+    setSelectedPeriod(fmtPeriod(d));
+  }
 
   const rows: Row[] = useMemo(() => {
     return billings.map((b) => {
@@ -91,6 +181,7 @@ export default function BillingsPage() {
   const filtered = useMemo(() => {
     return rows
       .filter((r) => {
+        if (r.billing.period !== selectedPeriod) return false;
         if (filter !== 'all' && r.state !== filter) return false;
         if (q && !(r.tenant?.name.includes(q)) && !(r.tenant?.biz_no.includes(q)) && !r.billing.period.includes(q)) return false;
         return true;
@@ -104,7 +195,7 @@ export default function BillingsPage() {
         if (a.owe !== b.owe) return b.owe - a.owe;
         return b.billing.period.localeCompare(a.billing.period);
       });
-  }, [rows, filter, q]);
+  }, [rows, filter, q, selectedPeriod]);
 
   const totals = useMemo(() => {
     const totalOwe = rows.reduce((s, r) => s + r.owe, 0);
@@ -156,9 +247,9 @@ export default function BillingsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col h-full space-y-5">
       <PageHeader
-        title="미수 관리"
+        title="청구·수납"
         subtitle={
           <>
             전체 청구 {rows.length}건 · 미수 <span className="font-bold text-red-600">{fmtMoney(totals.totalOwe)}원</span>
@@ -173,7 +264,41 @@ export default function BillingsPage() {
       />
 
       <ListToolbar
-        search={{ value: q, onChange: setQ, placeholder: '상사명 · 사업자번호 · 청구월 검색' }}
+        search={{ value: q, onChange: setQ, placeholder: '상사명 · 사업자번호 검색', width: 'w-60' }}
+        rightSlot={
+          <div className="inline-flex items-center gap-1">
+            <button
+              onClick={() => changeMonth(-1)}
+              className="w-8 h-[34px] border border-zinc-200 rounded-md hover:bg-zinc-50 flex items-center justify-center"
+              title="이전 월"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <input
+              type="month"
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="h-[34px] border border-zinc-200 rounded-md px-2 text-[12.5px] tabular focus:outline-none focus:border-zinc-500"
+            />
+            <button
+              onClick={() => changeMonth(1)}
+              className="w-8 h-[34px] border border-zinc-200 rounded-md hover:bg-zinc-50 flex items-center justify-center"
+              title="다음 월"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setSelectedPeriod(curPeriod)}
+              disabled={selectedPeriod === curPeriod}
+              className={`px-2.5 h-[34px] text-[11.5px] rounded-md border ml-1 ${
+                selectedPeriod === curPeriod ? 'bg-zinc-100 text-zinc-400 border-zinc-200 cursor-default' : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400'
+              }`}
+              title="이번 달로 이동"
+            >
+              당월
+            </button>
+          </div>
+        }
         filters={FILTERS}
         filterValue={filter}
         onFilterChange={setFilter}
@@ -200,52 +325,61 @@ export default function BillingsPage() {
             {filtered.map((r) => (
               <tr
                 key={r.billing.id}
-                className={`border-b border-zinc-100 last:border-0 align-top hover:bg-zinc-50/80 ${
+                onClick={() => setOpenDetail(r.billing.id)}
+                className={`border-b border-zinc-100 last:border-0 align-middle hover:bg-zinc-50/80 cursor-pointer ${
                   r.state === 'chronic' ? 'bg-red-50/30' : r.state === 'overdue' ? 'bg-orange-50/20' : ''
                 }`}
               >
-                <td className="py-2.5 px-4 text-center tabular text-[12px] font-semibold whitespace-nowrap">
+                <td className="py-2 px-4 text-center tabular text-[12px] font-semibold whitespace-nowrap">
                   {r.billing.period}
                 </td>
-                <td className="py-2.5 px-4 whitespace-nowrap">
-                  <div className="font-semibold">{r.tenant?.name || '?'}</div>
-                  <div className="text-[10.5px] text-zinc-500 tabular">{r.tenant?.biz_no}</div>
+                <td className="py-2 px-4 whitespace-nowrap">
+                  <div className="font-semibold leading-tight">{r.tenant?.name || '?'}</div>
+                  <div className="text-[10.5px] text-zinc-500 leading-tight mt-0.5">
+                    <span className="tabular">{r.tenant?.biz_no}</span>
+                    {r.tenant?.ceo && (<><span className="text-zinc-300"> · </span>{r.tenant.ceo}</>)}
+                  </div>
                 </td>
-                <td className="py-2.5 px-4 text-[11px] text-zinc-700">
-                  {r.billing.items.map((it, i) => (
-                    <div key={i} className="flex items-center justify-between gap-3">
-                      <span className="text-zinc-600">{it.type}</span>
-                      <span className="tabular text-zinc-700">{fmtMoney(it.amount)}</span>
-                    </div>
-                  ))}
+                <td className="py-2 px-4 text-[11px] text-zinc-600 whitespace-nowrap">
+                  {r.billing.items.length > 0
+                    ? r.billing.items.map((it, i) => (
+                        <span key={i}>
+                          {i > 0 && <span className="text-zinc-300"> · </span>}
+                          {it.type}{' '}
+                          <span className={`tabular ${it.amount < 0 ? 'text-red-600 font-semibold' : 'text-zinc-700 font-medium'}`}>
+                            {fmtMoney(it.amount)}
+                          </span>
+                        </span>
+                      ))
+                    : '—'}
                 </td>
-                <td className="py-2.5 px-4 text-right tabular font-semibold whitespace-nowrap">
+                <td className="py-2 px-4 text-right tabular font-semibold whitespace-nowrap">
                   {fmtMoney(r.billing.total)}
                 </td>
-                <td className="py-2.5 px-4 text-right tabular text-green-700 whitespace-nowrap">
+                <td className="py-2 px-4 text-right tabular text-green-700 whitespace-nowrap">
                   {(r.billing.paid_amount || 0) > 0 ? (
-                    <>
-                      <div>{fmtMoney(r.billing.paid_amount || 0)}</div>
-                      <div className="text-[10px] text-green-600">{r.paidRate}%</div>
-                    </>
+                    <span>
+                      {fmtMoney(r.billing.paid_amount || 0)}
+                      <span className="text-[10px] text-green-600 ml-1">({r.paidRate}%)</span>
+                    </span>
                   ) : (
                     <span className="text-zinc-300">—</span>
                   )}
                 </td>
-                <td className={`py-2.5 px-4 text-right tabular whitespace-nowrap ${
+                <td className={`py-2 px-4 text-right tabular whitespace-nowrap ${
                   r.owe > 0 ? 'text-red-600 font-bold text-[13.5px]' : 'text-zinc-300'
                 }`}>
                   {r.owe > 0 ? fmtMoney(r.owe) : '—'}
                 </td>
-                <td className="py-2.5 px-4 text-center tabular text-[11.5px] whitespace-nowrap">
-                  <div className={r.daysOverdue > 0 ? 'text-red-600 font-semibold' : 'text-zinc-600'}>
+                <td className="py-2 px-4 text-center tabular text-[11.5px] whitespace-nowrap">
+                  <span className={r.daysOverdue > 0 ? 'text-red-600 font-semibold' : 'text-zinc-600'}>
                     {r.billing.due_date}
-                  </div>
+                  </span>
                   {r.daysUntilDue > 0 && r.owe > 0 && (
-                    <div className="text-[10px] text-zinc-500">D-{r.daysUntilDue}</div>
+                    <span className="text-[10px] text-zinc-500 ml-1">D-{r.daysUntilDue}</span>
                   )}
                 </td>
-                <td className="py-2.5 px-4 text-center tabular whitespace-nowrap">
+                <td className="py-2 px-4 text-center tabular whitespace-nowrap">
                   {r.daysOverdue > 0 ? (
                     <span className={`text-[12.5px] font-bold ${r.daysOverdue >= 31 ? 'text-red-600' : 'text-orange-600'}`}>
                       {r.daysOverdue}일
@@ -254,17 +388,17 @@ export default function BillingsPage() {
                     <span className="text-zinc-300">—</span>
                   )}
                 </td>
-                <td className="py-2.5 px-4 text-center tabular text-[11px] whitespace-nowrap">
+                <td className="py-2 px-4 text-center tabular text-[11px] whitespace-nowrap">
                   {r.lastDeposit ? (
-                    <>
-                      <div className="text-zinc-700">{r.lastDeposit.date}</div>
-                      <div className="text-[10px] text-green-700 font-medium">+{fmtMoney(r.lastDeposit.deposit || 0)}</div>
-                    </>
+                    <span>
+                      <span className="text-zinc-700">{r.lastDeposit.date}</span>
+                      <span className="text-[10px] text-green-700 font-medium ml-1">+{fmtMoney(r.lastDeposit.deposit || 0)}</span>
+                    </span>
                   ) : (
                     <span className="text-zinc-300">—</span>
                   )}
                 </td>
-                <td className="py-2.5 px-4 text-center">
+                <td className="py-2 px-4 text-center">
                   <StateBadge tone={STATE_BADGE[r.state].tone}>{STATE_BADGE[r.state].label}</StateBadge>
                 </td>
               </tr>
@@ -279,6 +413,12 @@ export default function BillingsPage() {
           </tbody>
         </table>
       </DataCard>
+
+      <BillingDetailDialog
+        open={!!openDetail}
+        onClose={() => setOpenDetail(null)}
+        billingId={openDetail}
+      />
     </div>
   );
 }

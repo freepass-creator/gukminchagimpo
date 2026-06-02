@@ -56,24 +56,31 @@ export function ListToolbar<V extends string = string>({
       )}
       {filters && filters.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap">
-          {filters.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => onFilterChange?.(f.value)}
-              className={`px-2.5 h-[26px] text-[11.5px] rounded-full border transition ${
-                filterValue === f.value
-                  ? 'bg-zinc-900 text-white border-zinc-900'
-                  : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400'
-              }`}
-            >
-              {f.label}
-              {counts && counts[f.value] !== undefined && (
-                <span className={`ml-1 ${filterValue === f.value ? 'text-zinc-300' : 'text-zinc-400'}`}>
-                  {counts[f.value]}
-                </span>
-              )}
-            </button>
-          ))}
+          {filters.map((f) => {
+            if (f.value === '__sep__') {
+              return (
+                <span key={`sep-${f.label}`} className="text-zinc-300 px-1 select-none">|</span>
+              );
+            }
+            return (
+              <button
+                key={f.value}
+                onClick={() => onFilterChange?.(f.value)}
+                className={`px-2.5 h-[26px] text-[11.5px] rounded-full border transition ${
+                  filterValue === f.value
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400'
+                }`}
+              >
+                {f.label}
+                {counts && counts[f.value] !== undefined && (
+                  <span className={`ml-1 ${filterValue === f.value ? 'text-zinc-300' : 'text-zinc-400'}`}>
+                    {counts[f.value]}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
       {rightSlot && <div className="ml-auto flex items-center gap-2">{rightSlot}</div>}

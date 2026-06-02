@@ -1,33 +1,58 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { FilePlus2 } from 'lucide-react';
 import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
-import { FloorTree } from '@/components/FloorTree';
+import { FloorMiniMap } from '@/components/FloorMiniMap';
 import { FloorCanvas } from '@/components/FloorCanvas';
 import { FloorPalette } from '@/components/FloorPalette';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/Button';
+import { NewLeaseDialog } from '@/components/NewLeaseDialog';
 
 export default function MapPage() {
-  const { floors } = useData();
+  const { floors, stalls, sections } = useData();
   const { isAdmin } = useAuth();
+  const searchParams = useSearchParams();
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedStallIds, setSelectedStallIds] = useState<string[]>([]);
+  const [openNewLease, setOpenNewLease] = useState(false);
 
   useEffect(() => {
+    const q = searchParams.get('floor');
+    if (q && floors.some((f) => f.id === q)) {
+      setSelectedFloorId(q);
+      return;
+    }
     if (!selectedFloorId && floors.length > 0) {
       setSelectedFloorId([...floors].sort((a, b) => a.order - b.order)[0].id);
     }
-  }, [floors, selectedFloorId]);
+  }, [floors, searchParams, selectedFloorId]);
 
   const floor = floors.find((f) => f.id === selectedFloorId);
 
+  // 선택된 stall에서 사무실 / 주차블럭 분리
+  const { selectedOfficeIds, selectedSectionIds } = useMemo(() => {
+    const officeIds: string[] = [];
+    const secIds = new Set<string>();
+    for (const id of selectedStallIds) {
+      const s = stalls.find((x) => x.id === id);
+      if (!s) continue;
+      if (s.type === 'office') officeIds.push(s.id);
+      else if (s.type === 'parking' && s.section_id) secIds.add(s.section_id);
+    }
+    return { selectedOfficeIds: officeIds, selectedSectionIds: Array.from(secIds) };
+  }, [selectedStallIds, stalls]);
+
+  const canCreateLease = selectedOfficeIds.length > 0 || selectedSectionIds.length > 0;
+
   return (
     <div className="-mx-7 -my-6 flex" style={{ height: 'calc(100vh - 56px)' }}>
-      <FloorTree
+      <FloorMiniMap
         selectedFloorId={selectedFloorId}
         onSelectFloor={(id) => { setSelectedFloorId(id); setSelectedStallIds([]); }}
-        editable={false}
       />
 
       <div className="flex-1 min-w-0 flex flex-col bg-zinc-50">
@@ -40,12 +65,27 @@ export default function MapPage() {
               <div className="text-[11px] text-zinc-500 tabular">
                 {floor.grid_cols} × {floor.grid_rows} 셀
               </div>
-              <div className="ml-auto flex items-center gap-1 px-1.5 text-[11px] text-zinc-500">
+              <div className="flex items-center gap-1 px-1.5 text-[11px] text-zinc-500">
                 <StatusBadge state="vacant" />
                 <StatusBadge state="active" />
                 <StatusBadge state="overdue" />
                 <StatusBadge state="expiring" />
                 <StatusBadge state="reserved" />
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                {canCreateLease && (
+                  <span className="text-[11px] text-zinc-600 tabular">
+                    선택: 사무실 {selectedOfficeIds.length}실 · 전시장 {selectedSectionIds.length}블럭
+                  </span>
+                )}
+                <Button
+                  variant={canCreateLease ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setOpenNewLease(true)}
+                  disabled={!canCreateLease}
+                >
+                  <FilePlus2 className="w-3.5 h-3.5" /> 계약 생성
+                </Button>
               </div>
             </>
           ) : (
@@ -59,7 +99,16 @@ export default function MapPage() {
               floor={floor}
               mode="view"
               selectedIds={selectedStallIds}
-              onSelect={(id) => setSelectedStallIds(id ? [id] : [])}
+              onSelect={(id, shiftKey) => {
+                if (!id) { setSelectedStallIds([]); return; }
+                if (shiftKey) {
+                  setSelectedStallIds((arr) =>
+                    arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]
+                  );
+                } else {
+                  setSelectedStallIds([id]);
+                }
+              }}
               onMove={() => {}}
             />
           ) : (
@@ -82,6 +131,13 @@ export default function MapPage() {
           mode="view"
         />
       )}
+
+      <NewLeaseDialog
+        open={openNewLease}
+        onClose={() => { setOpenNewLease(false); setSelectedStallIds([]); }}
+        defaultOfficeIds={selectedOfficeIds}
+        defaultSectionIds={selectedSectionIds}
+      />
     </div>
   );
 }

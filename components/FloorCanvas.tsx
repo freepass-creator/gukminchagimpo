@@ -193,7 +193,7 @@ export function FloorCanvas({
       }
       if (newW === stall.layout.w && newH === stall.layout.h) return;
       const next = { x: stall.layout.x, y: stall.layout.y, w: newW, h: newH };
-      const { conflict } = wouldOverlap(stall.id, floor.id, next, stalls);
+      const { conflict } = wouldOverlap(stall.id, floor.id, next, stalls, decors);
       if (conflict) return;
       onResize(stall.id, newW, newH);
       return;
@@ -222,7 +222,7 @@ export function FloorCanvas({
     ));
     if (newX === stall.layout.x && newY === stall.layout.y) return;
     const next = { x: newX, y: newY, w: stall.layout.w, h: stall.layout.h };
-    const { conflict } = wouldOverlap(stall.id, floor.id, next, stalls);
+    const { conflict } = wouldOverlap(stall.id, floor.id, next, stalls, decors);
     if (conflict) return;
     onMove(drag.id, newX, newY);
   }
@@ -278,7 +278,7 @@ export function FloorCanvas({
           conflict = true;
         } else {
           const { conflict: c1 } = wouldOverlap(null, floor.id,
-            { x, y, w: placement.cellW, h: placement.cellH }, stalls);
+            { x, y, w: placement.cellW, h: placement.cellH }, stalls, decors);
           conflict = c1;
         }
         if (conflict) anyConflict = true;
@@ -386,9 +386,9 @@ export function FloorCanvas({
       await updateFloor(floor.id, { grid_cols: newCols, grid_rows: newRows });
       toast.info(`그리드 자동 확장: ${newCols} × ${newRows}`);
     }
-    const { conflict } = wouldOverlap(null, floor.id, { x, y, w, h }, stalls);
+    const { conflict, kind } = wouldOverlap(null, floor.id, { x, y, w, h }, stalls, decors);
     if (conflict) {
-      toast.error('이미 다른 공간이 차지하고 있어 추가 불가');
+      toast.error(kind === 'decor' ? '시설물(기둥·램프 등) 자리에는 배치 불가' : '이미 다른 공간이 차지하고 있어 추가 불가');
       return;
     }
     const code = type === 'office'
@@ -521,8 +521,11 @@ export function FloorCanvas({
       await updateFloor(floor.id, expand);
       toast.info(`그리드 자동 확장: ${expand.grid_cols ?? floor.grid_cols} × ${expand.grid_rows ?? floor.grid_rows}`);
     }
-    const { conflict, with: cw } = wouldOverlap(stallId, floor.id, next, stalls);
-    if (conflict) { toast.error(`회전 시 ${cw}와 겹쳐서 불가`); return; }
+    const { conflict, with: cw, kind } = wouldOverlap(stallId, floor.id, next, stalls, decors);
+    if (conflict) {
+      toast.error(kind === 'decor' ? '회전 시 시설물과 겹쳐서 불가' : `회전 시 ${cw}와 겹쳐서 불가`);
+      return;
+    }
     try {
       await updateStall(stallId, { layout: next });
       toast.success('회전');
@@ -538,10 +541,8 @@ export function FloorCanvas({
         overflow="visible"
         style={{
           width: '100%',
-          maxWidth: '900px',
           height: 'auto',
           display: 'block',
-          margin: '0 auto',
           overflow: 'visible',
           cursor: placement ? 'crosshair' : undefined,
         }}
@@ -715,27 +716,6 @@ export function FloorCanvas({
                     style={{ cursor: 'nwse-resize' }}
                     onMouseDown={(e) => startResizeDecor(e, d, 'br')}
                   />
-                  <g
-                    style={{ cursor: 'pointer' }}
-                    onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                    onClick={(e) => { e.stopPropagation(); rotateDecor(d); }}
-                  >
-                    <circle
-                      cx={6} cy={6} r={5}
-                      fill="#2563eb"
-                      stroke="#fff"
-                      strokeWidth={1.5}
-                    />
-                    <text
-                      x={6} y={6}
-                      fontSize={7}
-                      fontWeight={900}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill="#fff"
-                      pointerEvents="none"
-                    >↻</text>
-                  </g>
                 </>
               )}
             </g>
@@ -756,45 +736,40 @@ export function FloorCanvas({
             const y = minY * floor.cell_size;
             const w = (maxX - minX) * floor.cell_size;
             const h = (maxY - minY) * floor.cell_size;
-            const labelFontSize = Math.max(6, Math.min(w, h) * 0.08);
+            const labelFontSize = 11; // 고정 — bounding box 크기에 영향 안 받음
+            const labelText = `[${sec.code}] ${sec.name} · ${members.length}면`;
             return (
               <g key={sec.id} pointerEvents="none">
-                {/* 섹션 배경 박스 */}
+                {/* 섹션 박스 — stall 영역과 동일 크기 (padding 0) */}
                 <rect
-                  x={x - 2} y={y - 2}
-                  width={w + 4} height={h + 4}
-                  rx={6}
+                  x={x} y={y}
+                  width={w} height={h}
+                  rx={3}
                   fill={sec.color}
-                  opacity={0.12}
+                  opacity={0.1}
                 />
-                {/* 섹션 외곽선 */}
                 <rect
-                  x={x - 2} y={y - 2}
-                  width={w + 4} height={h + 4}
-                  rx={6}
+                  x={x} y={y}
+                  width={w} height={h}
+                  rx={3}
                   fill="none"
                   stroke={sec.color}
                   strokeWidth={1.5}
                   strokeDasharray="4,2"
-                  opacity={0.7}
+                  opacity={0.8}
                 />
-                {/* 섹션 라벨 — 좌상단 */}
-                <rect
-                  x={x - 2} y={y - labelFontSize - 6}
-                  width={Math.max((sec.code.length + sec.name.length + 8) * labelFontSize * 0.55, 40)}
-                  height={labelFontSize + 4}
-                  rx={3}
-                  fill={sec.color}
-                />
+                {/* 섹션 라벨 — 좌상단 텍스트 (검정 + 흰색 outline, 색에 의존하지 않음) */}
                 <text
-                  x={x + 2} y={y - labelFontSize / 2 - 3}
+                  x={x} y={y - 4}
                   fontSize={labelFontSize}
                   fontWeight={700}
-                  fill="#fff"
-                  dominantBaseline="middle"
+                  fill="#1f2937"
+                  stroke="#fff"
+                  strokeWidth={3.5}
+                  paintOrder="stroke"
                   style={{ userSelect: 'none' }}
                 >
-                  [{sec.code}] {sec.name} · {members.length}칸
+                  {labelText}
                 </text>
               </g>
             );
@@ -935,28 +910,6 @@ export function FloorCanvas({
                     style={{ cursor: 'nwse-resize' }}
                     onMouseDown={(e) => startResize(e, s, 'br')}
                   />
-                  {/* 회전 핸들 — 박스 좌상단 모서리 안쪽 (항상 viewBox 안에 위치) */}
-                  <g
-                    style={{ cursor: 'pointer' }}
-                    onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                    onClick={(e) => { e.stopPropagation(); ctxRotate(s.id); }}
-                  >
-                    <circle
-                      cx={6} cy={6} r={5}
-                      fill="#2563eb"
-                      stroke="#fff"
-                      strokeWidth={1.5}
-                    />
-                    <text
-                      x={6} y={6}
-                      fontSize={7}
-                      fontWeight={900}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill="#fff"
-                      pointerEvents="none"
-                    >↻</text>
-                  </g>
                 </>
               )}
             </g>

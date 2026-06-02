@@ -10,17 +10,17 @@ import {
   TrendingUp,
   ArrowRight,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useData } from '@/lib/data-context';
 import { getStallState } from '@/lib/state';
 import { KPICard } from '@/components/KPICard';
 import { Card, CardHeader, CardBody } from '@/components/Card';
-import { StallChip } from '@/components/StallChip';
-import { StatusBadge } from '@/components/StatusBadge';
-import { fmtMoney, fmtPeriod, daysBetween } from '@/lib/utils';
-import type { Lease } from '@/lib/types';
+import { fmtMoney, fmtPeriod, fmtDate, daysBetween } from '@/lib/utils';
+import type { Lease, Floor } from '@/lib/types';
 
 export default function DashboardPage() {
-  const { stalls, tenants, leases, billings, config, today } = useData();
+  const { stalls, tenants, leases, billings, floors, config, today } = useData();
+  const router = useRouter();
 
   const curPeriod = fmtPeriod(today);
   const monthBills = billings.filter((b) => b.period === curPeriod);
@@ -57,10 +57,32 @@ export default function DashboardPage() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  const aOffice = stalls.filter((s) => s.building === 'A' && s.type === 'office');
-  const aParking = stalls.filter((s) => s.building === 'A' && s.type === 'parking');
-  const bOffice = stalls.filter((s) => s.building === 'B' && s.type === 'office');
-  const bParking = stalls.filter((s) => s.building === 'B' && s.type === 'parking');
+  // 단지 미니맵용 — 동별 + 층별 점유 요약
+  const todayStr = fmtDate(today);
+  const occupiedStallIds = new Set<string>();
+  for (const l of leases) {
+    if (l.status !== 'active') continue;
+    if (l.start > todayStr || l.end < todayStr) continue;
+    l.stall_ids.forEach((id) => occupiedStallIds.add(id));
+  }
+  const buildings = Array.from(new Set(floors.map((f) => f.building))).sort();
+  const grouped: Record<string, Floor[]> = {};
+  for (const b of buildings) {
+    grouped[b] = floors
+      .filter((f) => f.building === b)
+      .sort((a, c) => (a.order ?? 0) - (c.order ?? 0));
+  }
+  function floorSummary(floorId: string) {
+    const fStalls = stalls.filter((s) => s.floor_id === floorId);
+    const offices = fStalls.filter((s) => s.type === 'office');
+    const parkings = fStalls.filter((s) => s.type === 'parking');
+    return {
+      officeTotal: offices.length,
+      officeOccupied: offices.filter((s) => occupiedStallIds.has(s.id)).length,
+      parkingTotal: parkings.length,
+      parkingOccupied: parkings.filter((s) => occupiedStallIds.has(s.id)).length,
+    };
+  }
 
   return (
     <div className="space-y-5">
@@ -209,42 +231,57 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* 미니맵 */}
+      {/* 미니맵 — 건물별 빌딩 stack */}
       <Card>
-        <CardHeader title="단지 미니맵" desc="A동 · B동 공간 상태 (클릭 시 단지 맵)" />
+        <CardHeader title="단지 미니맵" desc="건물 · 층별 점유 (클릭 시 단지 맵)" />
         <CardBody>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <div className="text-[12px] font-semibold text-zinc-700 mb-2">A동</div>
-              <div className="text-[11px] text-zinc-500 mb-1">사무실 {aOffice.length}실</div>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {aOffice.map((s) => (
-                  <StallChip key={s.id} stall={s} compact />
-                ))}
-              </div>
-              <div className="text-[11px] text-zinc-500 mb-1">주차공간 (전시장) {aParking.length}칸</div>
-              <div className="flex flex-wrap gap-1.5">
-                {aParking.map((s) => (
-                  <StallChip key={s.id} stall={s} compact />
-                ))}
-              </div>
+          {buildings.length === 0 ? (
+            <div className="text-[12px] text-zinc-400 py-6 text-center">동·층 데이터 없음</div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {buildings.map((b) => (
+                <div key={b}>
+                  <div className="text-[12.5px] font-bold text-zinc-800 mb-2 text-center">
+                    {b}동
+                  </div>
+                  <div className="border border-zinc-300 rounded-md overflow-hidden shadow-sm">
+                    {grouped[b].map((f, idx) => {
+                      const isFirst = idx === 0;
+                      const label = f.label.replace(/\s*\([^)]*\)/, '');
+                      const s = floorSummary(f.id);
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => router.push(`/map?floor=${encodeURIComponent(f.id)}`)}
+                          className={`w-full px-3 py-2.5 flex flex-col items-center justify-center bg-white hover:bg-zinc-50 transition ${
+                            isFirst ? '' : 'border-t border-zinc-300'
+                          }`}
+                        >
+                          <div className="text-[13px] font-bold leading-tight text-zinc-800">
+                            {label}
+                          </div>
+                          <div className="text-[10.5px] mt-1 tabular leading-tight text-zinc-500">
+                            {s.officeTotal > 0 && (
+                              <span>사무실 {s.officeOccupied}/{s.officeTotal}</span>
+                            )}
+                            {s.officeTotal > 0 && s.parkingTotal > 0 && (
+                              <span className="opacity-60"> · </span>
+                            )}
+                            {s.parkingTotal > 0 && (
+                              <span>주차 {s.parkingOccupied}/{s.parkingTotal}</span>
+                            )}
+                            {s.officeTotal === 0 && s.parkingTotal === 0 && (
+                              <span className="opacity-60">공간 없음</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <div className="text-[12px] font-semibold text-zinc-700 mb-2">B동</div>
-              <div className="text-[11px] text-zinc-500 mb-1">사무실 {bOffice.length}실</div>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {bOffice.map((s) => (
-                  <StallChip key={s.id} stall={s} compact />
-                ))}
-              </div>
-              <div className="text-[11px] text-zinc-500 mb-1">주차공간 (전시장) {bParking.length}칸</div>
-              <div className="flex flex-wrap gap-1.5">
-                {bParking.map((s) => (
-                  <StallChip key={s.id} stall={s} compact />
-                ))}
-              </div>
-            </div>
-          </div>
+          )}
         </CardBody>
       </Card>
     </div>

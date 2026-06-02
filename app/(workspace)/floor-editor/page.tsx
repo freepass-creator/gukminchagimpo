@@ -20,7 +20,7 @@ import type { PlacementConfig, Stall } from '@/lib/types';
 
 export default function FloorEditorPage() {
   const router = useRouter();
-  const { floors, stalls, today } = useData();
+  const { floors, stalls, decors, today } = useData();
   const { isManager, loading, user } = useAuth();
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedStallIds, setSelectedStallIds] = useState<string[]>([]);
@@ -93,7 +93,7 @@ export default function FloorEditorPage() {
           await updateFloor(curFloor.id, expand);
           toast.info(`그리드 자동 확장: ${expand.grid_cols ?? curFloor.grid_cols} × ${expand.grid_rows ?? curFloor.grid_rows}`);
         }
-        const { conflict } = wouldOverlap(single.id, curFloor.id, next, stalls);
+        const { conflict } = wouldOverlap(single.id, curFloor.id, next, stalls, decors);
         if (conflict) { toast.error('회전 시 다른 공간과 겹쳐서 불가'); return; }
         await updateStall(single.id, { layout: next });
         return;
@@ -131,7 +131,7 @@ export default function FloorEditorPage() {
             const dx = src.layout!.x - minX;
             const dy = src.layout!.y - minY;
             const { conflict } = wouldOverlap(null, curFloor.id,
-              { x: t.x + dx, y: t.y + dy, w: src.layout!.w, h: src.layout!.h }, stalls);
+              { x: t.x + dx, y: t.y + dy, w: src.layout!.w, h: src.layout!.h }, stalls, decors);
             if (conflict) { ok = false; break; }
           }
           if (ok) { slot = t; break; }
@@ -146,7 +146,7 @@ export default function FloorEditorPage() {
                 const dx = src.layout!.x - minX;
                 const dy = src.layout!.y - minY;
                 const { conflict } = wouldOverlap(null, curFloor.id,
-                  { x: x + dx, y: y + dy, w: src.layout!.w, h: src.layout!.h }, stalls);
+                  { x: x + dx, y: y + dy, w: src.layout!.w, h: src.layout!.h }, stalls, decors);
                 if (conflict) { ok = false; break; }
               }
               if (ok) { slot = { x, y }; break outer; }
@@ -268,7 +268,7 @@ export default function FloorEditorPage() {
           skipped++; continue;
         }
         const { conflict } = wouldOverlap(null, floor.id,
-          { x, y, w: placement.cellW, h: placement.cellH }, stalls);
+          { x, y, w: placement.cellW, h: placement.cellH }, stalls, decors);
         if (conflict) { skipped++; continue; }
         const code = placement.type === 'office'
           ? String(nextNum + created)

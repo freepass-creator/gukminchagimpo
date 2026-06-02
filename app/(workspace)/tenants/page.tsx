@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Upload } from 'lucide-react';
 import { useData } from '@/lib/data-context';
 import { Button } from '@/components/Button';
@@ -30,6 +31,7 @@ const STATE_BADGE: Record<Exclude<TenantFilter, 'all'>, { tone: BadgeTone; label
 
 export default function TenantsPage() {
   const { tenants, leases, billings, stalls, today } = useData();
+  const router = useRouter();
   const [openUpload, setOpenUpload] = useState(false);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<TenantFilter>('all');
@@ -85,16 +87,25 @@ export default function TenantsPage() {
         if (filter !== 'all' && x.state !== filter) return false;
         if (q) {
           const k = q.toLowerCase();
-          return (
-            x.tenant.name.toLowerCase().includes(k) ||
-            x.tenant.biz_no.includes(q) ||
-            x.tenant.ceo.includes(q)
-          );
+          // 상사 정보
+          if (x.tenant.name.toLowerCase().includes(k)) return true;
+          if (x.tenant.biz_no.includes(q)) return true;
+          if (x.tenant.ceo.includes(q)) return true;
+          if ((x.tenant.phone || '').includes(q)) return true;
+          // 호수 (이 상사의 모든 lease의 사무실 호수)
+          const ts = leases.filter((l) => l.tenant_id === x.tenant.id);
+          const officeCodes = ts
+            .flatMap((l) => l.stall_ids)
+            .map((id) => stalls.find((s) => s.id === id))
+            .filter((s) => s?.type === 'office')
+            .map((s) => s!.code);
+          if (officeCodes.some((c) => c.includes(q))) return true;
+          return false;
         }
         return true;
       })
       .sort((a, b) => (a.moveIn || 'zzzz').localeCompare(b.moveIn || 'zzzz'));
-  }, [enriched, filter, q]);
+  }, [enriched, filter, q, leases, stalls]);
 
   const counts = useMemo(() => ({
     all: enriched.length,
@@ -105,7 +116,7 @@ export default function TenantsPage() {
   }), [enriched]);
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col h-full space-y-5">
       <PageHeader
         title="입주상사"
         subtitle={`전체 ${tenants.length}곳 · 입주중 ${counts.active} · 연체 ${counts.overdue} · 입점예정 ${counts.reserved}`}
@@ -117,7 +128,7 @@ export default function TenantsPage() {
       />
 
       <ListToolbar
-        search={{ value: q, onChange: setQ, placeholder: '상사명 · 사업자번호 · 대표 검색' }}
+        search={{ value: q, onChange: setQ, placeholder: '상사명 · 사업자번호 · 대표 · 전화 · 호수 검색' }}
         filters={FILTERS}
         filterValue={filter}
         onFilterChange={setFilter}
@@ -143,10 +154,14 @@ export default function TenantsPage() {
           </thead>
           <tbody>
             {filtered.map((x) => (
-              <tr key={x.tenant.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80">
+              <tr
+                key={x.tenant.id}
+                onClick={() => router.push(`/tenants/${x.tenant.id}`)}
+                className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80 cursor-pointer"
+              >
                 <td className="py-2.5 px-4">
-                  <div className="font-semibold">{x.tenant.name}</div>
-                  <div className="text-[10.5px] text-zinc-500 tabular">{x.tenant.biz_no}</div>
+                  <div className="font-semibold text-blue-700 hover:underline">{x.tenant.name}</div>
+                  <div className="text-[10.5px] text-zinc-500 tabular hover:underline">{x.tenant.biz_no}</div>
                 </td>
                 <td className="py-2.5 px-4 text-[11.5px] text-zinc-700">
                   <div>{x.tenant.ceo}</div>

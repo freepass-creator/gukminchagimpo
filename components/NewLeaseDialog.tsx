@@ -15,11 +15,15 @@ import type { Lease, Tenant } from '@/lib/types';
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** 단지맵에서 호출 시 미리 선택된 사무실 호수 */
+  defaultOfficeIds?: string[];
+  /** 단지맵에서 호출 시 미리 선택된 전시장 블럭 */
+  defaultSectionIds?: string[];
 }
 
 type ConflictChoice = 'shift' | 'terminate' | 'force';
 
-export function NewLeaseDialog({ open, onClose }: Props) {
+export function NewLeaseDialog({ open, onClose, defaultOfficeIds, defaultSectionIds }: Props) {
   const { stalls, tenants, leases, sections, config, today } = useData();
   const { user } = useAuth();
 
@@ -40,8 +44,8 @@ export function NewLeaseDialog({ open, onClose }: Props) {
     if (open) {
       setTenantId('');
       setNewTenant({});
-      setPickedOfficeIds([]);
-      setPickedSectionIds([]);
+      setPickedOfficeIds(defaultOfficeIds || []);
+      setPickedSectionIds(defaultSectionIds || []);
       setStart(fmtDate(today));
       setEnd(fmtDate(addMonths(today, 12)));
       setRent(0);
@@ -50,7 +54,7 @@ export function NewLeaseDialog({ open, onClose }: Props) {
       setMemo('');
       setChoice('shift');
     }
-  }, [open, today]);
+  }, [open, today, defaultOfficeIds, defaultSectionIds]);
 
   // 선택된 블럭들에 속한 주차 stall_id 모음
   const sectionStallIds = useMemo(() => {

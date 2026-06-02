@@ -5,12 +5,14 @@ import { Upload, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useData } from '@/lib/data-context';
 import { Button } from '@/components/Button';
 import { BankUploadDialog } from '@/components/BankUploadDialog';
+import { BankTxEditDialog } from '@/components/BankTxEditDialog';
 import { PageHeader } from '@/components/list/PageHeader';
 import { ListToolbar } from '@/components/list/ListToolbar';
 import { DataCard, stdTheadCls, thCls } from '@/components/list/DataCard';
 import { StateBadge, type BadgeTone } from '@/components/list/StateBadge';
-import { removeBankTx } from '@/lib/data';
+import { removeBankTx, updateBankTx } from '@/lib/data';
 import { fmtMoney, addMonths } from '@/lib/utils';
+import { ACCOUNT_CATEGORIES, suggestCategory } from '@/lib/categories';
 import { toast } from 'sonner';
 
 type CatFilter = 'all' | 'deposit_matched' | 'deposit_unmatched' | 'withdraw' | 'uncategorized';
@@ -42,6 +44,7 @@ function classifyTx(tx: { deposit?: number; withdraw?: number; matched_tenant_id
 export default function CashbookPage() {
   const { bankTx, tenants, today } = useData();
   const [openUpload, setOpenUpload] = useState(false);
+  const [editTxId, setEditTxId] = useState<string | null>(null);
   const [month, setMonth] = useState(
     today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0')
   );
@@ -119,7 +122,7 @@ export default function CashbookPage() {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col h-full space-y-5">
       <PageHeader
         title="자금일보"
         subtitle={`${month} · 입금 ${fmtMoney(totalDeposit)} · 출금 ${fmtMoney(totalWithdraw)} · 순증감 ${net >= 0 ? '+' : ''}${fmtMoney(net)} · 잔액 ${fmtMoney(lastBalance)}`}
@@ -165,11 +168,17 @@ export default function CashbookPage() {
                 const tenant = t.matched_tenant_id ? tenants.find((x) => x.id === t.matched_tenant_id) : null;
                 const badge = CAT_BADGE[t.cat];
                 return (
-                  <tr key={t.id} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/50">
+                  <tr
+                    key={t.id}
+                    onClick={() => setEditTxId(t.id)}
+                    className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80 cursor-pointer"
+                  >
                     <td className="py-2 px-4 tabular whitespace-nowrap text-zinc-700">{t.date}</td>
                     <td className="py-2 px-4">{t.description}</td>
-                    <td className="py-2 px-4 text-center">
-                      <StateBadge tone={badge.tone}>{badge.label}</StateBadge>
+                    <td className="py-2 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <CategorySelect
+                        tx={t}
+                      />
                     </td>
                     <td className="py-2 px-4 text-right tabular text-green-700 font-medium">
                       {t.deposit > 0 ? fmtMoney(t.deposit) : ''}
@@ -183,7 +192,7 @@ export default function CashbookPage() {
                     </td>
                     <td className="px-2 py-2">
                       <button
-                        onClick={() => handleRemove(t.id, t.description)}
+                        onClick={(e) => { e.stopPropagation(); handleRemove(t.id, t.description); }}
                         className="text-zinc-300 hover:text-red-600 p-0.5"
                         title="삭제"
                       >
@@ -199,6 +208,52 @@ export default function CashbookPage() {
       </DataCard>
 
       <BankUploadDialog open={openUpload} onClose={() => setOpenUpload(false)} />
+      <BankTxEditDialog
+        open={!!editTxId}
+        onClose={() => setEditTxId(null)}
+        txId={editTxId}
+      />
     </div>
+  );
+}
+
+/** 인라인 계정과목 select — 매칭된 수납은 기본 '임대료' */
+function CategorySelect({ tx }: { tx: any }) {
+  const suggested = suggestCategory(tx);
+  const value = tx.category || suggested;
+  const isIncome = (tx.deposit || 0) > 0;
+  const isExpense = (tx.withdraw || 0) > 0;
+  const colorCls = isIncome ? 'text-green-700 border-green-200 bg-green-50'
+                  : isExpense ? 'text-red-700 border-red-200 bg-red-50'
+                  : 'text-zinc-700 border-zinc-200 bg-white';
+  const placeholder = !tx.category && !suggested;
+
+  async function onChange(v: string) {
+    try {
+      await updateBankTx(tx.id, { category: v });
+      toast.success('계정과목 저장됨');
+    } catch (e: any) {
+      toast.error(e?.message || '실패');
+    }
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`h-7 px-1.5 text-[11px] font-medium border rounded tabular focus:outline-none focus:border-zinc-500 ${colorCls} ${placeholder ? 'text-zinc-400' : ''}`}
+    >
+      {placeholder && <option value="">— 선택 —</option>}
+      <optgroup label="입금">
+        {ACCOUNT_CATEGORIES.income.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </optgroup>
+      <optgroup label="지출">
+        {ACCOUNT_CATEGORIES.expense.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </optgroup>
+    </select>
   );
 }

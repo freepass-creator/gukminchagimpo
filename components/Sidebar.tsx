@@ -22,7 +22,7 @@ const NAV = [
   { href: '/map', label: '단지 맵', icon: Map },
   { href: '/timeline', label: '가용성', icon: Calendar },
   { href: '/leases', label: '임대 현황', icon: FileText },
-  { href: '/billings', label: '미수 관리', icon: Receipt },
+  { href: '/billings', label: '청구·수납', icon: Receipt },
   { href: '/cashbook', label: '자금일보', icon: Wallet },
   { href: '/tenants', label: '입주상사', icon: Building2 },
 ];
@@ -43,7 +43,7 @@ export function Sidebar() {
 
   return (
     <aside className="w-[220px] shrink-0 bg-zinc-950 text-zinc-300 flex flex-col h-screen">
-      <div className="px-4 pt-3.5 pb-2.5 border-b border-zinc-800/80">
+      <div className="h-14 px-4 flex flex-col justify-center border-b border-zinc-800/80 shrink-0">
         <div className="text-white text-[12.5px] font-bold leading-tight tracking-tight">
           국민차매매단지
         </div>
