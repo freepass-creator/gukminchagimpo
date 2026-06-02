@@ -8,6 +8,8 @@ import { Button } from './Button';
 import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
 import { updateBilling, savePayment, writeAudit } from '@/lib/data';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { fmtMoney, fmtDate, daysBetween, newId } from '@/lib/utils';
 import type { Billing, Payment } from '@/lib/types';
 
@@ -129,6 +131,26 @@ export function BillingDetailDialog({ open, onClose, billingId }: Props) {
     } finally { setBusy(false); }
   }
 
+  async function deleteBilling() {
+    if (!billing) return;
+    if (!confirm(`${billing.period} 청구를 삭제할까요?\n수납 ${fmtMoney(paid)}원이 있을 경우 별도 환불 처리가 필요합니다.`)) return;
+    setBusy(true);
+    try {
+      await deleteDoc(doc(db, 'billings', billing.id));
+      await writeAudit({
+        actor: user?.email || 'unknown',
+        type: 'billing_delete',
+        target: billing.id,
+        memo: `${billing.period} 청구 삭제 (총 ${fmtMoney(billing.total)})`,
+        at: fmtDate(today),
+      });
+      toast.success('청구 삭제됨');
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || '실패');
+    } finally { setBusy(false); }
+  }
+
   async function save() {
     if (!billing) return;
     if (items.length === 0) {
@@ -173,9 +195,14 @@ export function BillingDetailDialog({ open, onClose, billingId }: Props) {
       desc={`${billing.id}`}
       width={680}
       footer={
-        <Button variant="primary" onClick={async () => { await save(); }} disabled={busy}>
-          {busy ? '저장 중...' : '닫기'}
-        </Button>
+        <>
+          <Button variant="danger" onClick={deleteBilling} disabled={busy}>
+            청구 삭제
+          </Button>
+          <Button variant="primary" onClick={async () => { await save(); }} disabled={busy}>
+            {busy ? '저장 중...' : '닫기'}
+          </Button>
+        </>
       }
     >
       {/* 청구 헤더 정보 */}

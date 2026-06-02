@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Play, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/Button';
@@ -11,6 +11,7 @@ import { ListToolbar } from '@/components/list/ListToolbar';
 import { DataCard, stdTheadCls, thCls } from '@/components/list/DataCard';
 import { StateBadge, type BadgeTone } from '@/components/list/StateBadge';
 import { BillingDetailDialog } from '@/components/BillingDetailDialog';
+import { NewBillingDialog } from '@/components/NewBillingDialog';
 import { saveBilling, writeAudit } from '@/lib/data';
 import { addMonths, fmtMoney, fmtPeriod, fmtDate, daysBetween } from '@/lib/utils';
 import type { Billing, Tenant, BankTransaction } from '@/lib/types';
@@ -129,10 +130,10 @@ function MatrixView({
 export default function BillingsPage() {
   const { tenants, leases, billings, bankTx, byId, today } = useData();
   const { user } = useAuth();
-  const [running, setRunning] = useState(false);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | BillState>('all');
   const [openDetail, setOpenDetail] = useState<string | null>(null);
+  const [openNewBilling, setOpenNewBilling] = useState(false);
 
   const todayStr = fmtDate(today);
   const curPeriod = fmtPeriod(today);
@@ -204,47 +205,55 @@ export default function BillingsPage() {
     return { totalOwe, chronicOwe, overdueOwe };
   }, [rows]);
 
-  async function runMonthlyBatch() {
-    setRunning(true);
-    try {
+  // 월이 바뀌면 자동 정기 청구 생성 — 페이지 진입 시 1회만 시도 (중복 방지: localStorage)
+  useEffect(() => {
+    if (leases.length === 0) return; // 데이터 로딩 전 skip
+    const guardKey = `billing-auto-${curPeriod}`;
+    if (typeof window !== 'undefined' && localStorage.getItem(guardKey) === '1') return;
+
+    (async () => {
       let created = 0;
-      for (const l of leases) {
-        if (l.status !== 'active') continue;
-        if (new Date(l.start) > today) continue;
-        const exists = billings.find((b) => b.lease_id === l.id && b.period === curPeriod);
-        if (exists) continue;
-        const total = l.rent_total + l.maint_total + 38000;
-        const b: Billing = {
-          id: `BL_${l.id}_${curPeriod.replace('-', '')}`,
-          lease_id: l.id,
-          tenant_id: l.tenant_id,
-          period: curPeriod,
-          items: [
-            { type: '월세', amount: l.rent_total },
-            { type: '관리비', amount: l.maint_total },
-            { type: '공과금 안분', amount: 38000 },
-          ],
-          total,
-          due_date: `${curPeriod}-25`,
-          paid_amount: 0,
-        };
-        await saveBilling(b);
-        created++;
+      try {
+        for (const l of leases) {
+          if (l.status !== 'active') continue;
+          if (new Date(l.start) > today) continue;
+          const exists = billings.find((b) => b.lease_id === l.id && b.period === curPeriod);
+          if (exists) continue;
+          const total = l.rent_total + l.maint_total;
+          const b: Billing = {
+            id: `BL_${l.id}_${curPeriod.replace('-', '')}`,
+            lease_id: l.id,
+            tenant_id: l.tenant_id,
+            period: curPeriod,
+            items: [
+              { type: '사무실 임대료', amount: l.rent_total },
+              { type: '관리비', amount: l.maint_total },
+            ],
+            total,
+            due_date: `${curPeriod}-25`,
+            paid_amount: 0,
+          };
+          await saveBilling(b);
+          created++;
+        }
+        if (created > 0) {
+          await writeAudit({
+            actor: user?.email || 'system-auto',
+            type: 'billing_auto_generate',
+            target: curPeriod,
+            memo: `${curPeriod} 정기 청구 ${created}건 자동 생성`,
+            at: fmtDate(today),
+          });
+          toast.success(`${curPeriod} 정기 청구 ${created}건 자동 생성`);
+        }
+        if (typeof window !== 'undefined') localStorage.setItem(guardKey, '1');
+      } catch (e: any) {
+        toast.error(e?.message || '자동 청구 생성 실패');
       }
-      await writeAudit({
-        actor: user?.email || 'unknown',
-        type: 'batch_billing',
-        target: curPeriod,
-        memo: `${created}건 자동 생성`,
-        at: fmtDate(today),
-      });
-      toast.success(`${curPeriod} 정기 청구 ${created}건 생성`);
-    } catch (e: any) {
-      toast.error(e?.message || '실패');
-    } finally {
-      setRunning(false);
-    }
-  }
+    })();
+    // leases 데이터가 들어오는 첫 시점에 1회만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leases.length > 0, curPeriod]);
 
   return (
     <div className="flex flex-col h-full space-y-5">
@@ -257,8 +266,8 @@ export default function BillingsPage() {
           </>
         }
         actions={
-          <Button variant="primary" onClick={runMonthlyBatch} disabled={running}>
-            <Play className="w-3.5 h-3.5" /> 정기 청구 일괄 생성 ({curPeriod})
+          <Button variant="primary" onClick={() => setOpenNewBilling(true)}>
+            <Plus className="w-3.5 h-3.5" /> 청구 추가
           </Button>
         }
       />
@@ -418,6 +427,10 @@ export default function BillingsPage() {
         open={!!openDetail}
         onClose={() => setOpenDetail(null)}
         billingId={openDetail}
+      />
+      <NewBillingDialog
+        open={openNewBilling}
+        onClose={() => setOpenNewBilling(false)}
       />
     </div>
   );
