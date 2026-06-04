@@ -9,7 +9,9 @@ import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
 import { saveTenant } from '@/lib/data';
 import { PageHeader } from '@/components/list/PageHeader';
-import { Card, CardBody } from '@/components/Card';
+import { DataCard, stdTheadCls, thCls } from '@/components/list/DataCard';
+import { StateBadge, type BadgeTone } from '@/components/list/StateBadge';
+import { Card, CardBody, CardHeader } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { BillingDetailDialog } from '@/components/BillingDetailDialog';
 import { fmtMoney, fmtDate, daysBetween } from '@/lib/utils';
@@ -199,19 +201,16 @@ export default function TenantDetailPage() {
       )}
 
       {/* 계약 */}
-      <Card className="overflow-hidden">
-        <div className="px-5 pt-4 pb-2">
-          <h2 className="text-[13.5px] font-semibold">계약 ({tenantLeases.length}건)</h2>
-        </div>
-        <table className="w-full text-[12px]">
-          <thead className="bg-zinc-50 border-y border-zinc-200 text-zinc-600">
+      <DataCard header={<CardHeader title={`계약 (${tenantLeases.length}건)`} />}>
+        <table className="w-full text-[12.5px]">
+          <thead className={stdTheadCls}>
             <tr>
-              <th className="text-left py-1.5 px-4 font-semibold whitespace-nowrap">계약 ID</th>
-              <th className="text-left py-1.5 px-4 font-semibold">사무실</th>
-              <th className="text-left py-1.5 px-4 font-semibold">전시장</th>
-              <th className="text-center py-1.5 px-4 font-semibold whitespace-nowrap">기간</th>
-              <th className="text-right py-1.5 px-4 font-semibold whitespace-nowrap">월 합계</th>
-              <th className="text-center py-1.5 px-4 font-semibold whitespace-nowrap">상태</th>
+              <th className={thCls.left}>계약 ID</th>
+              <th className={thCls.left}>사무실</th>
+              <th className={thCls.left}>전시장</th>
+              <th className={thCls.center}>기간</th>
+              <th className={thCls.right}>월 합계</th>
+              <th className={thCls.center}>상태</th>
             </tr>
           </thead>
           <tbody>
@@ -266,13 +265,13 @@ export default function TenantDetailPage() {
                     </td>
                     <td className="py-2 px-4 text-right tabular font-semibold whitespace-nowrap">{fmtMoney(officeRent + parkingRent)}</td>
                     <td className="py-2 px-4 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        l.status === 'active' ? 'bg-green-100 text-green-700'
-                        : l.status === 'terminated' ? 'bg-zinc-100 text-zinc-600'
-                        : 'bg-orange-100 text-orange-700'
-                      }`}>
+                      <StateBadge tone={
+                        l.status === 'active' ? 'green'
+                        : l.status === 'terminated' ? 'zinc'
+                        : 'orange'
+                      }>
                         {l.status === 'active' ? '활성' : l.status === 'terminated' ? '해지' : l.status}
-                      </span>
+                      </StateBadge>
                     </td>
                   </tr>
                 );
@@ -280,22 +279,19 @@ export default function TenantDetailPage() {
             )}
           </tbody>
         </table>
-      </Card>
+      </DataCard>
 
       {/* 청구·수납 이력 */}
-      <Card className="overflow-hidden">
-        <div className="px-5 pt-4 pb-2">
-          <h2 className="text-[13.5px] font-semibold">청구·수납 이력 ({tenantBillings.length}건)</h2>
-        </div>
-        <table className="w-full text-[12px]">
-          <thead className="bg-zinc-50 border-y border-zinc-200 text-zinc-600">
+      <DataCard header={<CardHeader title={`청구·수납 이력 (${tenantBillings.length}건)`} />}>
+        <table className="w-full text-[12.5px]">
+          <thead className={stdTheadCls}>
             <tr>
-              <th className="text-center py-1.5 px-4 font-semibold whitespace-nowrap">청구월</th>
-              <th className="text-right py-1.5 px-4 font-semibold whitespace-nowrap">청구액</th>
-              <th className="text-right py-1.5 px-4 font-semibold whitespace-nowrap">수납</th>
-              <th className="text-right py-1.5 px-4 font-semibold whitespace-nowrap">미수</th>
-              <th className="text-center py-1.5 px-4 font-semibold whitespace-nowrap">마감일</th>
-              <th className="text-center py-1.5 px-4 font-semibold whitespace-nowrap">상태</th>
+              <th className={thCls.center}>청구월</th>
+              <th className={thCls.right}>청구액</th>
+              <th className={thCls.right}>수납</th>
+              <th className={thCls.right}>미수</th>
+              <th className={thCls.center}>마감일</th>
+              <th className={thCls.center}>상태</th>
             </tr>
           </thead>
           <tbody>
@@ -320,13 +316,9 @@ export default function TenantDetailPage() {
                     </td>
                     <td className="py-2 px-4 text-center tabular text-zinc-600 whitespace-nowrap">{b.due_date}</td>
                     <td className="py-2 px-4 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        o === 0 ? 'bg-green-100 text-green-700'
-                        : overdue ? 'bg-red-100 text-red-700'
-                        : 'bg-yellow-100 text-yellow-700'
-                      }`}>
+                      <StateBadge tone={o === 0 ? 'green' : overdue ? 'red' : 'yellow'}>
                         {o === 0 ? '완납' : overdue ? '연체' : '미납'}
-                      </span>
+                      </StateBadge>
                     </td>
                   </tr>
                 );
@@ -334,20 +326,17 @@ export default function TenantDetailPage() {
             )}
           </tbody>
         </table>
-      </Card>
+      </DataCard>
 
       {/* 통장 매칭 입금 */}
-      <Card className="overflow-hidden">
-        <div className="px-5 pt-4 pb-2">
-          <h2 className="text-[13.5px] font-semibold">통장 매칭 입금 ({tenantBankTx.length}건)</h2>
-        </div>
-        <table className="w-full text-[12px]">
-          <thead className="bg-zinc-50 border-y border-zinc-200 text-zinc-600">
+      <DataCard header={<CardHeader title={`통장 매칭 입금 (${tenantBankTx.length}건)`} />}>
+        <table className="w-full text-[12.5px]">
+          <thead className={stdTheadCls}>
             <tr>
-              <th className="text-left py-1.5 px-4 font-semibold whitespace-nowrap">일자</th>
-              <th className="text-left py-1.5 px-4 font-semibold">적요</th>
-              <th className="text-right py-1.5 px-4 font-semibold whitespace-nowrap">입금</th>
-              <th className="text-left py-1.5 px-4 font-semibold whitespace-nowrap">분류</th>
+              <th className={thCls.left}>일자</th>
+              <th className={thCls.left}>적요</th>
+              <th className={thCls.right}>입금</th>
+              <th className={thCls.left}>분류</th>
             </tr>
           </thead>
           <tbody>
@@ -367,7 +356,7 @@ export default function TenantDetailPage() {
             )}
           </tbody>
         </table>
-      </Card>
+      </DataCard>
 
       <BillingDetailDialog
         open={!!openBilling}

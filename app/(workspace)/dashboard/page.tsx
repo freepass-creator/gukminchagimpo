@@ -15,6 +15,7 @@ import { useData } from '@/lib/data-context';
 import { getStallState } from '@/lib/state';
 import { KPICard } from '@/components/KPICard';
 import { Card, CardHeader, CardBody } from '@/components/Card';
+import { PageHeader } from '@/components/list/PageHeader';
 import { fmtMoney, fmtPeriod, fmtDate, daysBetween, fmtFloorLabel } from '@/lib/utils';
 import { buildArrearsByTenant, buildOccupiedStallIds } from '@/lib/selectors';
 import type { Lease, Floor } from '@/lib/types';
@@ -78,12 +79,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight">대시보드</h1>
-        <p className="text-[12.5px] text-zinc-500 mt-0.5">
-          {config.complex_name} · 오늘 기준 단지 현황 한눈에
-        </p>
-      </div>
+      <PageHeader
+        title="대시보드"
+        subtitle={`${config.complex_name} · 오늘 기준 단지 현황 한눈에`}
+      />
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

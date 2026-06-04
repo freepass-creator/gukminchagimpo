@@ -9,6 +9,7 @@ import { Card, CardHeader, CardBody } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { ManagerSettings } from '@/components/ManagerSettings';
 import { AccountSettings } from '@/components/AccountSettings';
+import { PageHeader } from '@/components/list/PageHeader';
 import { saveConfig, writeAudit } from '@/lib/data';
 import { fmtDate } from '@/lib/utils';
 import type { Config } from '@/lib/types';
@@ -45,17 +46,15 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight">단지 설정</h1>
-          <p className="text-[12.5px] text-zinc-500 mt-0.5">
-            모든 운영 룰은 여기서 조정. 단지마다·시기마다 자유롭게.
-          </p>
-        </div>
-        <Button variant="primary" onClick={save} disabled={saving}>
-          <Save className="w-3.5 h-3.5" /> {saving ? '저장 중...' : '저장'}
-        </Button>
-      </div>
+      <PageHeader
+        title="단지 설정"
+        subtitle="모든 운영 룰은 여기서 조정. 단지마다·시기마다 자유롭게."
+        actions={
+          <Button variant="primary" onClick={save} disabled={saving}>
+            <Save className="w-3.5 h-3.5" /> {saving ? '저장 중...' : '저장'}
+          </Button>
+        }
+      />
 
       <AccountSettings />
 

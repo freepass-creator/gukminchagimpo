@@ -6,6 +6,7 @@ import { Database, AlertTriangle, ShieldX, Crown, FileCode, Trash2, Upload } fro
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardHeader, CardBody } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { PageHeader } from '@/components/list/PageHeader';
 import { MigrationDialog } from '@/components/MigrationDialog';
 import { runSeed } from '@/lib/seed';
 import { wipeCollection } from '@/lib/data';
@@ -59,14 +60,15 @@ export default function DevToolsPage() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight flex items-center gap-2">
-          <Crown className="w-5 h-5 text-amber-500" /> 개발 도구
-        </h1>
-        <p className="text-[12.5px] text-zinc-500 mt-0.5">
-          마스터 전용 · 데이터 시드 · 일괄 삭제 · 디버깅 도구
-        </p>
-      </div>
+      <PageHeader
+        title="개발 도구"
+        subtitle={
+          <>
+            <Crown className="w-3 h-3 text-amber-500 inline mr-1" />
+            마스터 전용 · 데이터 시드 · 일괄 삭제 · 디버깅 도구
+          </>
+        }
+      />
 
       {/* 시드 */}
       <Card>
