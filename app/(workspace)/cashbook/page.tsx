@@ -208,9 +208,9 @@ export default function CashbookPage() {
         <table className="w-full text-[12.5px]">
           <thead className={stdTheadCls}>
             <tr>
-              <th className={thCls.left}>통장</th>
               <th className={thCls.left}>일자</th>
               <th className={thCls.left}>적요 · 메모</th>
+              <th className={thCls.left}>통장</th>
               <th className={thCls.center}>분류</th>
               <th className={thCls.center}>처리</th>
               <th className={thCls.right}>입금</th>
