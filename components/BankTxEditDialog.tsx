@@ -113,23 +113,33 @@ export function BankTxEditDialog({ open, onClose, txId }: Props) {
           />
         </Field>
 
-        <Field label="분류 (계정과목)">
+        <Field label={`분류 (계정과목) — ${deposit > 0 ? '입금' : withdraw > 0 ? '지출' : '미분류'}`}>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="w-full h-8 px-2 border border-zinc-200 rounded-md text-[12.5px] focus:outline-none focus:border-zinc-500"
           >
             <option value="">— 미분류 —</option>
-            <optgroup label="입금">
-              {ACCOUNT_CATEGORIES.income.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </optgroup>
-            <optgroup label="지출">
-              {ACCOUNT_CATEGORIES.expense.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </optgroup>
+            {deposit > 0 && ACCOUNT_CATEGORIES.income.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+            {withdraw > 0 && ACCOUNT_CATEGORIES.expense.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+            {!deposit && !withdraw && (
+              <>
+                <optgroup label="입금">
+                  {ACCOUNT_CATEGORIES.income.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="지출">
+                  {ACCOUNT_CATEGORIES.expense.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </optgroup>
+              </>
+            )}
           </select>
         </Field>
 
