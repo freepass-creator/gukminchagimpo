@@ -1,14 +1,16 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useData } from '@/lib/data-context';
 import { Card, CardBody } from '@/components/Card';
 import { PageHeader } from '@/components/list/PageHeader';
 import { DataCard, stdTheadCls } from '@/components/list/DataCard';
 import { addMonths, monthStart, monthEnd } from '@/lib/utils';
 import { Building, Car } from 'lucide-react';
+import type { Stall } from '@/lib/types';
 
 export default function TimelinePage() {
-  const { stalls, leases, floors, today } = useData();
+  const { leases, floors, index, today } = useData();
   const months: Date[] = [];
   for (let i = 0; i < 8; i++) {
     months.push(addMonths(monthStart(today), i));
@@ -19,22 +21,37 @@ export default function TimelinePage() {
     (a, b) => a.building.localeCompare(b.building) || a.order - b.order
   );
 
-  /** 특정 stall이 특정 월에 점유 중인지 */
-  function isOccupied(stallId: string, m: Date): boolean {
-    const mStart = monthStart(m);
-    const mEnd = monthEnd(m);
-    return leases.some(
-      (l) =>
-        l.status === 'active' &&
-        l.stall_ids.includes(stallId) &&
-        new Date(l.start) <= mEnd &&
-        new Date(l.end) >= mStart
-    );
-  }
+  /**
+   * stall × 월 단위 점유 매트릭스 — 한 번에 빌드.
+   * leases 풀스캔 1회 + stall에 점유 month set 부여 → 셀당 O(1) lookup.
+   */
+  const occupancyByStall = useMemo(() => {
+    const map = new Map<string, Set<string>>(); // stallId → set of 'YYYY-MM'
+    const monthKey = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const monthBounds = months.map((m) => ({ key: monthKey(m), start: monthStart(m).getTime(), end: monthEnd(m).getTime() }));
+    for (const l of leases) {
+      if (l.status !== 'active') continue;
+      const ls = new Date(l.start).getTime();
+      const le = new Date(l.end).getTime();
+      // 어느 month들과 겹치는지 한 번에
+      const overlapping = monthBounds.filter((mb) => ls <= mb.end && le >= mb.start).map((mb) => mb.key);
+      if (overlapping.length === 0) continue;
+      for (const id of l.stall_ids) {
+        let s = map.get(id);
+        if (!s) { s = new Set(); map.set(id, s); }
+        for (const k of overlapping) s.add(k);
+      }
+    }
+    return { map, monthKey };
+  }, [leases, months]);
 
-  /** 특정 stall들 중 그 월에 점유된 수 */
   function countOccupied(stallIds: string[], m: Date): number {
-    return stallIds.filter((id) => isOccupied(id, m)).length;
+    const k = occupancyByStall.monthKey(m);
+    let n = 0;
+    for (const id of stallIds) {
+      if (occupancyByStall.map.get(id)?.has(k)) n++;
+    }
+    return n;
   }
 
   /** 점유율 → 색상 */
@@ -105,11 +122,11 @@ export default function TimelinePage() {
                 </thead>
                 <tbody>
                   {sortedFloors.map((f) => {
-                    const floorStalls = stalls.filter((s) => s.floor_id === f.id);
+                    const floorStalls = index.stallsByFloor.get(f.id) || [];
                     const offices = floorStalls.filter((s) => s.type === 'office');
                     const parkings = floorStalls.filter((s) => s.type === 'parking');
 
-                    const rows: { type: 'office' | 'parking'; stalls: typeof stalls; total: number }[] = [];
+                    const rows: { type: 'office' | 'parking'; stalls: Stall[]; total: number }[] = [];
                     if (offices.length > 0) rows.push({ type: 'office', stalls: offices, total: offices.length });
                     if (parkings.length > 0) rows.push({ type: 'parking', stalls: parkings, total: parkings.length });
 

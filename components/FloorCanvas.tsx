@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState, MouseEvent, useEffect } from 'react';
+import { useRef, useState, useMemo, MouseEvent, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Trash2, Copy, RotateCw } from 'lucide-react';
-import { getStallState, wouldOverlap, findSlotOrExpand, expandToFit } from '@/lib/state';
+import { wouldOverlap, findSlotOrExpand, expandToFit, buildStallStateMap } from '@/lib/state';
 import { nextOfficeCode, nextParkingCode, makeStallId, makeDecorId } from '@/lib/codes';
 import { updateFloor } from '@/lib/data';
 import { useData } from '@/lib/data-context';
@@ -86,7 +86,7 @@ export function FloorCanvas({
   showGrid = true, placement, onPlace, onCancelPlacement,
   selectedCell, onSelectCell,
 }: Props) {
-  const { stalls, leases, billings, tenants, config, today, decors, sections } = useData();
+  const { stalls, leases, billings, tenants, config, today, decors, sections, index, byId } = useData();
   const { user } = useAuth();
   const ref = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -95,8 +95,13 @@ export function FloorCanvas({
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [selectedDecorId, setSelectedDecorId] = useState<string | null>(null);
 
-  const floorStalls = stalls.filter((s) => s.floor_id === floor.id && s.layout);
-  const floorDecors = decors.filter((d) => d.floor_id === floor.id && d.layout);
+  const floorStalls = (index.stallsByFloor.get(floor.id) || []).filter((s) => s.layout);
+  const floorDecors = (index.decorsByFloor.get(floor.id) || []).filter((d) => d.layout);
+  // 한 번에 stall state Map 빌드 (stall마다 leases/billings 풀스캔 방지)
+  const stallStateMap = useMemo(
+    () => buildStallStateMap(floorStalls, leases, billings, config, today),
+    [floorStalls, leases, billings, config, today]
+  );
   const W = floor.grid_cols * floor.cell_size;
   const H = floor.grid_rows * floor.cell_size;
 
@@ -779,9 +784,9 @@ export function FloorCanvas({
         {/* 공간 박스 */}
         {floorStalls.map((s) => {
           const layout = s.layout!;
-          const result = getStallState(s.id, leases, billings, config, today);
+          const result = stallStateMap.get(s.id)!;
           const fill = getFill(s.type, result.state);
-          const tenant = result.lease ? tenants.find((t) => t.id === result.lease!.tenant_id) : null;
+          const tenant = result.lease ? byId.tenant.get(result.lease.tenant_id) : null;
           const x = layout.x * floor.cell_size;
           const y = layout.y * floor.cell_size;
           const w = layout.w * floor.cell_size;

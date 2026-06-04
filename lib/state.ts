@@ -34,6 +34,9 @@ export interface StallStateResult {
 /**
  * 공간 상태 산출 — 계약·미수·일자로 실시간 자동 판단.
  * 별도 필드 저장이 아니라 derived state.
+ *
+ * ⚠️ 다수 stall을 화면에 그리는 경우(매트릭스/캔버스/대시보드)는 buildStallStateMap을 쓰는 게
+ * 훨씬 빠릅니다 (O(L+B) 1회 + stall당 O(1) lookup).
  */
 export function getStallState(
   stallId: string,
@@ -73,6 +76,71 @@ export function getStallState(
   }
 
   return { state: 'active', lease: current, futureLease: future };
+}
+
+/**
+ * 전체 stall에 대해 한 번에 state Map 빌드.
+ * - L = leases 수, B = billings 수, S = stalls 수일 때 O(L + B + L×k) (k = lease당 stall_ids 길이)
+ * - 호출처: stall마다 .get(id) O(1)
+ */
+export function buildStallStateMap(
+  stalls: Stall[],
+  leases: Lease[],
+  billings: Billing[],
+  config: Config,
+  today: Date = new Date()
+): Map<string, StallStateResult> {
+  const todayMs = today.getTime();
+  // 1) lease를 active(current) / future로 미리 분류 + stall별 인덱스
+  const currentByStall = new Map<string, Lease>();
+  const futureByStall = new Map<string, Lease>();
+  for (const l of leases) {
+    if (l.status !== 'active') continue;
+    const startMs = new Date(l.start).getTime();
+    const endMs = new Date(l.end).getTime();
+    if (startMs <= todayMs && endMs >= todayMs) {
+      for (const id of l.stall_ids) {
+        // 같은 stall에 활성 lease가 여러 개면 첫 번째만 기록 (이상 데이터)
+        if (!currentByStall.has(id)) currentByStall.set(id, l);
+      }
+    } else if (startMs > todayMs) {
+      for (const id of l.stall_ids) {
+        const prev = futureByStall.get(id);
+        if (!prev || l.start < prev.start) futureByStall.set(id, l);
+      }
+    }
+  }
+
+  // 2) lease별 연체 여부 미리 계산 (over due billing 있나)
+  const overdueLeaseIds = new Set<string>();
+  for (const b of billings) {
+    if (b.total <= (b.paid_amount || 0)) continue;
+    if (new Date(b.due_date).getTime() >= todayMs) continue;
+    overdueLeaseIds.add(b.lease_id);
+  }
+
+  // 3) stall마다 결과 판정 (O(1))
+  const result = new Map<string, StallStateResult>();
+  for (const s of stalls) {
+    const current = currentByStall.get(s.id);
+    const future = futureByStall.get(s.id);
+    if (!current) {
+      if (future) result.set(s.id, { state: 'reserved', lease: future, futureLease: future });
+      else result.set(s.id, { state: 'vacant', lease: null });
+      continue;
+    }
+    if (overdueLeaseIds.has(current.id)) {
+      result.set(s.id, { state: 'overdue', lease: current, futureLease: future });
+      continue;
+    }
+    const daysToExpire = daysBetween(today, current.end);
+    if (daysToExpire <= config.expiring_threshold_days) {
+      result.set(s.id, { state: 'expiring', lease: current, futureLease: future });
+      continue;
+    }
+    result.set(s.id, { state: 'active', lease: current, futureLease: future });
+  }
+  return result;
 }
 
 /** 한 공간에 신규 계약 시 기간 충돌 검사 */

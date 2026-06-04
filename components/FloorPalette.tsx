@@ -14,7 +14,7 @@ import { makeDecorId } from '@/lib/codes';
 import { Box, ArrowUpRight, DoorOpen } from 'lucide-react';
 import { Button } from './Button';
 import { StatusBadge } from './StatusBadge';
-import { getStallState, wouldOverlap, findSlotOrExpand, expandToFit } from '@/lib/state';
+import { getStallState, wouldOverlap, findSlotOrExpand, expandToFit, buildStallStateMap } from '@/lib/state';
 import { updateFloor } from '@/lib/data';
 import {
   nextOfficeCode, nextParkingCode, nextSectionCode, suggestSectionName,
@@ -597,7 +597,8 @@ export function FloorPalette({
         const floorStalls = stalls.filter((s) => s.floor_id === floor.id);
         const offices = floorStalls.filter((s) => s.type === 'office');
         const parking = floorStalls.filter((s) => s.type === 'parking');
-        const states = floorStalls.map((s) => getStallState(s.id, leases, billings, config, today));
+        const stateMap = buildStallStateMap(floorStalls, leases, billings, config, today);
+        const states = floorStalls.map((s) => stateMap.get(s.id)!);
         const occ = states.filter((r) => r.state !== 'vacant').length;
         const vacant = states.filter((r) => r.state === 'vacant').length;
         const overdue = states.filter((r) => r.state === 'overdue').length;

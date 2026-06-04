@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useData } from '@/lib/data-context';
-import { getStallState } from '@/lib/state';
+import { buildStallStateMap } from '@/lib/state';
 import { KPICard } from '@/components/KPICard';
 import { Card, CardHeader, CardBody } from '@/components/Card';
 import { PageHeader } from '@/components/list/PageHeader';
@@ -32,10 +32,11 @@ export default function DashboardPage() {
     .filter((b) => b.total > (b.paid_amount || 0))
     .reduce((s, b) => s + (b.total - (b.paid_amount || 0)), 0);
 
-  const states = stalls.map((s) => ({
-    stall: s,
-    ...getStallState(s.id, leases, billings, config, today),
-  }));
+  const stateMap = buildStallStateMap(stalls, leases, billings, config, today);
+  const states = stalls.map((s) => {
+    const r = stateMap.get(s.id)!;
+    return { stall: s, state: r.state, lease: r.lease, futureLease: r.futureLease };
+  });
   const vacantCount = states.filter((s) => s.state === 'vacant').length;
   const vacantRate = stalls.length
     ? ((vacantCount / stalls.length) * 100).toFixed(1)
