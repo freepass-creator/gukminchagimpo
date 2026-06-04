@@ -95,22 +95,6 @@ export function findConflicts(
   return conflicts;
 }
 
-/** 특정 공간이 어느 시점에 비는지 */
-export function nextVacantDate(
-  stallId: string,
-  leases: Lease[],
-  today: Date = new Date()
-): string | null {
-  const current = leases.find(
-    (l) =>
-      l.status === 'active' &&
-      l.stall_ids.includes(stallId) &&
-      new Date(l.start) <= today &&
-      new Date(l.end) >= today
-  );
-  if (!current) return null;
-  return current.end;
-}
 
 /**
  * 같은 층의 다른 공간과 겹치는지 검사.
@@ -232,20 +216,3 @@ export function expandToFit(
   return patch;
 }
 
-/** 특정 공간이 특정 월에 누구에게 점유되어 있는지 */
-export function getLeaseForMonth(
-  stallId: string,
-  monthStart: Date,
-  monthEnd: Date,
-  leases: Lease[]
-): Lease | null {
-  return (
-    leases.find(
-      (l) =>
-        l.status === 'active' &&
-        l.stall_ids.includes(stallId) &&
-        new Date(l.start) <= monthEnd &&
-        new Date(l.end) >= monthStart
-    ) || null
-  );
-}

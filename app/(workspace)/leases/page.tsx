@@ -12,7 +12,7 @@ import { PageHeader } from '@/components/list/PageHeader';
 import { ListToolbar } from '@/components/list/ListToolbar';
 import { DataCard, stdTheadCls, stdTrCls, thCls, tdCls } from '@/components/list/DataCard';
 import { StateBadge as StdBadge, type BadgeTone } from '@/components/list/StateBadge';
-import { fmtMoney, fmtDate, addDays, daysBetween } from '@/lib/utils';
+import { fmtMoney, fmtDate, addDays, daysBetween, fmtFloorLabel } from '@/lib/utils';
 import type { Lease, Stall, Floor, ParkingSection, Tenant } from '@/lib/types';
 
 type RowKind = 'lease' | 'vacant-office' | 'vacant-section';
@@ -80,7 +80,7 @@ export default function LeasesPage() {
     const expCutoffStr = fmtDate(addDays(today, expDays));
 
     function floorLabel(f: Floor): string {
-      return `${f.building}동 ${f.label.replace(/\s*\([^)]*\)/, '')}`;
+      return fmtFloorLabel(f);
     }
     function arrearsFor(leaseId: string): number {
       return (index.billingsByLease.get(leaseId) || [])
@@ -274,7 +274,7 @@ export default function LeasesPage() {
         const parkingOccupied = parkings.filter((s) => occupiedStallIds.has(s.id)).length;
         return {
           floor: f,
-          label: f.label.replace(/\s*\([^)]*\)/, ''),
+          label: fmtFloorLabel(f, { withBuilding: false }),
           officeTotal: offices.length,
           officeOccupied,
           officeVacant: offices.length - officeOccupied,
@@ -637,122 +637,6 @@ function CombinedSpaceRow({
           </span>
         </>
       )}
-    </div>
-  );
-}
-
-function CategoryRow({
-  category,
-  summary,
-  items,
-  vacant,
-}: {
-  category: 'office' | 'parking';
-  summary: string;
-  items: CategoryItem[];
-  vacant?: boolean;
-}) {
-  const MAX_SHOW = 6;
-  const visible = items.slice(0, MAX_SHOW);
-  const hidden = items.length - visible.length;
-
-  const tagCls = category === 'office'
-    ? 'bg-blue-100 text-blue-700'
-    : 'bg-amber-100 text-amber-700';
-  const tagLabel = category === 'office' ? '사무실' : '주차';
-
-  // 사무실 = 호수 뱃지만 (라벨/요약 X)
-  if (category === 'office') {
-    const itemCls = vacant
-      ? 'bg-zinc-50 border-zinc-200 border-dashed text-zinc-500'
-      : 'bg-blue-50 border-blue-300 text-blue-800';
-    return (
-      <div className="flex items-center gap-1 flex-wrap">
-        {visible.map((it) => (
-          <span
-            key={it.key}
-            title={`${it.sub} · ${it.label}`}
-            className={`inline-block px-1.5 py-0.5 rounded border text-[11px] font-semibold tabular whitespace-nowrap ${itemCls}`}
-          >
-            {it.label}
-          </span>
-        ))}
-        {hidden > 0 && (
-          <span className="inline-block px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 text-[11px] font-medium whitespace-nowrap">
-            외 {hidden}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  // 주차 = 블럭 뱃지 + 총 면수
-  const itemCls = vacant
-    ? 'bg-zinc-50 border-zinc-200 border-dashed text-zinc-500'
-    : 'bg-amber-50 border-amber-300 text-amber-800';
-  const totalFaces = items.reduce((s, it) => {
-    const m = it.label.match(/(\d+)면/);
-    return s + (m ? parseInt(m[1]) : 0);
-  }, 0);
-  return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {visible.map((it) => (
-        <span
-          key={it.key}
-          title={`${it.sub} · ${it.label}`}
-          className={`inline-block px-1.5 py-0.5 rounded border text-[11px] font-semibold tabular whitespace-nowrap ${itemCls}`}
-        >
-          {it.label}
-        </span>
-      ))}
-      {hidden > 0 && (
-        <span className="inline-block px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 text-[11px] font-medium whitespace-nowrap">
-          외 {hidden}
-        </span>
-      )}
-      {totalFaces > 0 && (
-        <span className="text-[10.5px] text-zinc-600 tabular font-semibold ml-1 whitespace-nowrap">
-          총 {totalFaces}면
-        </span>
-      )}
-    </div>
-  );
-}
-
-function OfficeBox({ code, floorLabel, vacant }: { code: string; floorLabel: string; vacant?: boolean }) {
-  return (
-    <div
-      className={`inline-flex flex-col items-center justify-center px-2 py-1 rounded border min-w-[68px] ${
-        vacant
-          ? 'bg-zinc-50 border-zinc-200 border-dashed text-zinc-400'
-          : 'bg-blue-50 border-blue-300 text-blue-800'
-      }`}
-      title={floorLabel}
-    >
-      <span className="text-[9.5px] font-semibold opacity-70 whitespace-nowrap">
-        {floorLabel}
-      </span>
-      <span className="text-[13px] font-bold tabular leading-tight">{code}호</span>
-    </div>
-  );
-}
-
-function ParkingBlockBox({ block, vacant }: { block: ParkingBlock; vacant?: boolean }) {
-  const colorBase = vacant
-    ? 'bg-zinc-50 border-zinc-200 border-dashed'
-    : 'bg-amber-50 border-amber-300';
-  const textBase = vacant ? 'text-zinc-500' : 'text-amber-800';
-  return (
-    <div
-      className={`inline-flex flex-col items-center justify-center px-2 py-1 rounded border min-w-[78px] ${colorBase}`}
-      title={`${block.floorLabel} · ${block.sectionName}`}
-    >
-      <span className={`text-[9.5px] font-semibold opacity-70 whitespace-nowrap ${textBase}`}>
-        {block.floorLabel}
-      </span>
-      <span className={`text-[12.5px] font-bold leading-tight ${textBase}`}>
-        {block.sectionName} <span className="font-semibold tabular">{block.stalls.length}면</span>
-      </span>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import { useData } from '@/lib/data-context';
 import { getStallState } from '@/lib/state';
 import { KPICard } from '@/components/KPICard';
 import { Card, CardHeader, CardBody } from '@/components/Card';
-import { fmtMoney, fmtPeriod, fmtDate, daysBetween } from '@/lib/utils';
+import { fmtMoney, fmtPeriod, fmtDate, daysBetween, fmtFloorLabel } from '@/lib/utils';
 import type { Lease, Floor } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -247,7 +247,7 @@ export default function DashboardPage() {
                   <div className="border border-zinc-300 rounded-md overflow-hidden shadow-sm">
                     {grouped[b].map((f, idx) => {
                       const isFirst = idx === 0;
-                      const label = f.label.replace(/\s*\([^)]*\)/, '');
+                      const label = fmtFloorLabel(f, { withBuilding: false });
                       const s = floorSummary(f.id);
                       return (
                         <button

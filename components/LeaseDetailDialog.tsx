@@ -17,7 +17,7 @@ import {
   updateLease,
   writeAudit,
 } from '@/lib/data';
-import { addDays, addMonths, fmtDate, newId, fmtMoney, daysBetween } from '@/lib/utils';
+import { addDays, addMonths, fmtDate, newId, fmtMoney, daysBetween, fmtFloorLabel } from '@/lib/utils';
 import type { Lease, Payment } from '@/lib/types';
 
 interface Props {
@@ -254,7 +254,7 @@ export function LeaseDetailDialog({ open, onClose, leaseId }: Props) {
               <div className="flex flex-wrap gap-1.5">
                 {officeStalls.map((s) => {
                   const f = s.floor_id ? byId.floor.get(s.floor_id) : undefined;
-                  const floorTxt = f ? f.label.replace(/\s*\([^)]*\)/, '') : '';
+                  const floorTxt = fmtFloorLabel(f, { withBuilding: false });
                   return (
                     <button
                       key={s.id}
@@ -277,7 +277,7 @@ export function LeaseDetailDialog({ open, onClose, leaseId }: Props) {
               <div className="flex flex-wrap gap-1.5 items-center">
                 {sectionsUsed.map(({ section, count }) => {
                   const f = byId.floor.get(section.floor_id);
-                  const floorTxt = f ? f.label.replace(/\s*\([^)]*\)/, '') : '';
+                  const floorTxt = fmtFloorLabel(f, { withBuilding: false });
                   return (
                     <button
                       key={section.id}

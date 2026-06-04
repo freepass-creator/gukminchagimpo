@@ -7,7 +7,7 @@ import { Button } from './Button';
 import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
 import { saveTempAssignment, writeAudit } from '@/lib/data';
-import { fmtDate, newId } from '@/lib/utils';
+import { fmtDate, newId, fmtFloorLabel } from '@/lib/utils';
 import type { TempParkingAssignment } from '@/lib/types';
 
 interface Props {
@@ -77,7 +77,7 @@ export function TempAssignmentDialog({ open, onClose, defaultTenantId, defaultLe
       const f = byId.floor.get(sec.floor_id);
       return {
         section: sec,
-        floorLabel: f ? `${f.building}동 ${f.label.replace(/\s*\([^)]*\)/, '')}` : '?',
+        floorLabel: fmtFloorLabel(f),
         freeStalls: free,
       };
     }).filter((x) => x.freeStalls.length > 0);

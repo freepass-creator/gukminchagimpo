@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useData } from '@/lib/data-context';
-import { fmtDate } from '@/lib/utils';
+import { fmtDate, fmtFloorLabel } from '@/lib/utils';
 import type { Floor } from '@/lib/types';
 
 interface Props {
@@ -66,7 +66,7 @@ export function FloorMiniMap({ selectedFloorId, onSelectFloor }: Props) {
               {grouped[b].map((f, idx) => {
                 const isSelected = selectedFloorId === f.id;
                 const isFirst = idx === 0;
-                const label = f.label.replace(/\s*\([^)]*\)/, '');
+                const label = fmtFloorLabel(f, { withBuilding: false });
                 const s = summary(f.id);
                 return (
                   <button

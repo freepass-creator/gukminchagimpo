@@ -46,3 +46,18 @@ export const monthEnd = (d: Date): Date =>
 /** ID 생성기 (Firestore 자동 ID 대신 의미 있는 prefix 사용) */
 export const newId = (prefix: string): string =>
   prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/**
+ * Floor 라벨 통일 포맷터.
+ * - withBuilding=true (기본): "A동 1층" / "A동 지하"
+ * - withBuilding=false: "1층" / "지하" (괄호 부속 제거)
+ */
+export function fmtFloorLabel(
+  f: { building?: string; label: string } | undefined | null,
+  opts: { withBuilding?: boolean } = {}
+): string {
+  if (!f) return '?';
+  const withBuilding = opts.withBuilding !== false;
+  const cleanLabel = f.label.replace(/\s*\([^)]*\)/, '');
+  return withBuilding && f.building ? `${f.building}동 ${cleanLabel}` : cleanLabel;
+}
