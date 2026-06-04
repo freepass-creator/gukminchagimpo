@@ -8,7 +8,7 @@ import { Button } from '@/components/Button';
 import { TenantUploadDialog } from '@/components/TenantUploadDialog';
 import { PageHeader } from '@/components/list/PageHeader';
 import { ListToolbar } from '@/components/list/ListToolbar';
-import { DataCard, stdTheadCls, thCls } from '@/components/list/DataCard';
+import { DataCard, stdTheadCls, stdTrCls, thCls } from '@/components/list/DataCard';
 import { StateBadge, type BadgeTone } from '@/components/list/StateBadge';
 import { fmtMoney, fmtDate } from '@/lib/utils';
 import { buildArrearsByTenant, pickActiveLeasesForTenant, pickMoveInOut, tenantMatchesQuery } from '@/lib/selectors';
@@ -147,23 +147,23 @@ export default function TenantsPage() {
               <tr
                 key={x.tenant.id}
                 onClick={() => router.push(`/tenants/${x.tenant.id}`)}
-                className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80 cursor-pointer"
+                className={`${stdTrCls} cursor-pointer`}
               >
                 <td className="py-2.5 px-4">
                   <div className="font-semibold text-blue-700 hover:underline">{x.tenant.name}</div>
                   <div className="text-[10.5px] text-zinc-500 tabular hover:underline">{x.tenant.biz_no}</div>
                 </td>
-                <td className="py-2.5 px-4 text-[11.5px] text-zinc-700">
+                <td className="py-2.5 px-4 text-zinc-700">
                   <div>{x.tenant.ceo}</div>
                   <div className="text-zinc-500 tabular">{x.tenant.phone}</div>
                 </td>
-                <td className="py-2.5 px-4 text-center tabular text-[11.5px] text-zinc-700 whitespace-nowrap">
+                <td className="py-2.5 px-4 text-center tabular text-zinc-700 whitespace-nowrap">
                   {x.moveIn || <span className="text-zinc-300">—</span>}
                 </td>
-                <td className="py-2.5 px-4 text-center tabular text-[11.5px] text-zinc-700 whitespace-nowrap">
+                <td className="py-2.5 px-4 text-center tabular text-zinc-700 whitespace-nowrap">
                   {x.moveOut || <span className="text-zinc-300">—</span>}
                 </td>
-                <td className="py-2.5 px-4 text-center text-[11.5px] whitespace-nowrap">
+                <td className="py-2.5 px-4 text-center whitespace-nowrap">
                   {x.activeCount === 0 && x.reservedCount === 0 ? (
                     <span className="text-zinc-300">—</span>
                   ) : (
@@ -194,7 +194,7 @@ export default function TenantsPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center py-10 text-zinc-400 text-[12px]">
+                <td colSpan={9} className="text-center py-10 text-zinc-400">
                   해당하는 입주상사가 없습니다.
                 </td>
               </tr>

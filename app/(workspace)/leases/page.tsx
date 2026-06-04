@@ -376,7 +376,7 @@ export default function LeasesPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={11} className="text-center py-10 text-zinc-400 text-[12px]">
+                <td colSpan={11} className="text-center py-10 text-zinc-400">
                   해당하는 공간이 없습니다.
                 </td>
               </tr>
@@ -417,7 +417,7 @@ function RowView({
       } ${clickable ? 'cursor-pointer' : ''}`}
     >
       {/* 상사 */}
-      <td className="py-2 px-4 whitespace-nowrap">
+      <td className="py-2.5 px-4 whitespace-nowrap">
         {row.tenant ? (
           <>
             <div className="font-semibold leading-tight">{row.tenant.name}</div>
@@ -433,7 +433,7 @@ function RowView({
       </td>
 
       {/* 사무실 + 주차 (한 줄) */}
-      <td className="py-2 px-4">
+      <td className="py-2.5 px-4">
         {row.kind === 'lease' && (() => {
           const totalParking = (row.parkingBlocks || []).reduce((s, b) => s + b.stalls.length, 0);
           const offices = row.officeStalls!.map((s) => ({
@@ -481,15 +481,15 @@ function RowView({
       </td>
 
       {/* 시작 */}
-      <td className="py-3 px-3 text-center text-[11.5px] tabular whitespace-nowrap text-zinc-700">
+      <td className="py-2.5 px-4 text-center tabular whitespace-nowrap text-zinc-700">
         {row.lease ? row.lease.start : <span className="text-zinc-300">—</span>}
       </td>
       {/* 종료 */}
-      <td className="py-3 px-3 text-center text-[11.5px] tabular whitespace-nowrap text-zinc-700">
+      <td className="py-2.5 px-4 text-center tabular whitespace-nowrap text-zinc-700">
         {row.lease ? row.lease.end : <span className="text-zinc-300">—</span>}
       </td>
       {/* 잔여 */}
-      <td className="py-3 px-3 text-center whitespace-nowrap">
+      <td className="py-2.5 px-4 text-center whitespace-nowrap">
         {row.lease ? <RemainingPill start={row.lease.start} end={row.lease.end} /> : <span className="text-zinc-300">—</span>}
       </td>
 
@@ -514,16 +514,16 @@ function RowView({
         const total = officeRent + parkingRent + tempRent;
         return (
           <>
-            <td className={`py-2 px-4 text-right tabular ${vacantStyle ? 'text-zinc-400' : 'font-medium'}`}>
+            <td className={`py-2.5 px-4 text-right tabular ${vacantStyle ? 'text-zinc-400' : 'font-medium'}`}>
               {officeRent > 0 ? fmtMoney(officeRent) : <span className="text-zinc-300">—</span>}
             </td>
-            <td className={`py-2 px-4 text-right tabular ${vacantStyle ? 'text-zinc-400' : 'font-medium'}`}>
+            <td className={`py-2.5 px-4 text-right tabular ${vacantStyle ? 'text-zinc-400' : 'font-medium'}`}>
               {parkingRent > 0 ? fmtMoney(parkingRent) : <span className="text-zinc-300">—</span>}
             </td>
-            <td className="py-2 px-4 text-right tabular text-violet-700 font-medium">
+            <td className="py-2.5 px-4 text-right tabular text-violet-700 font-medium">
               {tempRent > 0 ? fmtMoney(tempRent) : <span className="text-zinc-300">—</span>}
             </td>
-            <td className={`py-2 px-4 text-right tabular ${vacantStyle ? 'text-zinc-400' : 'font-bold text-[13px]'}`}>
+            <td className={`py-2.5 px-4 text-right tabular ${vacantStyle ? 'text-zinc-400' : 'font-bold text-[13px]'}`}>
               {total > 0 ? fmtMoney(total) : <span className="text-zinc-300">—</span>}
             </td>
           </>
@@ -531,14 +531,14 @@ function RowView({
       })()}
 
       {/* 미수 */}
-      <td className={`py-3 px-4 text-right tabular ${
+      <td className={`py-2.5 px-4 text-right tabular ${
         (row.arrears || 0) > 0 ? 'text-red-600 font-bold' : 'text-zinc-300'
       }`}>
         {(row.arrears || 0) > 0 ? fmtMoney(row.arrears!) : '—'}
       </td>
 
       {/* 상태 */}
-      <td className="py-3 px-4 text-center">
+      <td className="py-2.5 px-4 text-center">
         <StateBadge state={row.state} />
       </td>
     </tr>
@@ -589,13 +589,13 @@ function CombinedSpaceRow({
         <span
           key={it.key}
           title={`${it.sub} · ${it.label}`}
-          className={`shrink-0 inline-block px-1.5 py-0.5 rounded border text-[11px] font-semibold tabular ${officeCls}`}
+          className={`shrink-0 inline-block px-1.5 py-0.5 rounded border font-semibold tabular ${officeCls}`}
         >
           {it.label}
         </span>
       ))}
       {officeHidden > 0 && (
-        <span className="shrink-0 inline-block px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 text-[11px] font-medium">
+        <span className="shrink-0 inline-block px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 font-medium">
           외 {officeHidden}
         </span>
       )}
@@ -606,18 +606,18 @@ function CombinedSpaceRow({
         <span
           key={it.key}
           title={`${it.sub} · ${it.label}`}
-          className={`shrink-0 inline-block px-1.5 py-0.5 rounded border text-[11px] font-semibold tabular ${parkingCls}`}
+          className={`shrink-0 inline-block px-1.5 py-0.5 rounded border font-semibold tabular ${parkingCls}`}
         >
           {it.label}
         </span>
       ))}
       {parkingHidden > 0 && (
-        <span className="shrink-0 inline-block px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 text-[11px] font-medium">
+        <span className="shrink-0 inline-block px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 text-zinc-600 font-medium">
           외 {parkingHidden}
         </span>
       )}
       {totalParking > 0 && (
-        <span className="shrink-0 text-[10.5px] text-zinc-600 tabular font-semibold ml-1">
+        <span className="shrink-0 text-zinc-600 tabular font-semibold ml-1">
           총 {totalParking}면
         </span>
       )}
@@ -625,7 +625,7 @@ function CombinedSpaceRow({
         <>
           <span className="shrink-0 text-zinc-300 px-1">·</span>
           <span
-            className="shrink-0 inline-block px-1.5 py-0.5 rounded border text-[11px] font-semibold tabular bg-violet-50 border-violet-300 text-violet-800"
+            className="shrink-0 inline-block px-1.5 py-0.5 rounded border font-semibold tabular bg-violet-50 border-violet-300 text-violet-800"
             title="임시 전시장"
           >
             임시 {tempParking.count}면
@@ -643,7 +643,7 @@ function RemainingPill({ start, end }: { start: string; end: string }) {
   if (start > todayStr) {
     const days = daysBetween(todayStr, start);
     return (
-      <span className="inline-block px-1.5 py-0.5 text-[10.5px] font-semibold rounded bg-orange-50 text-orange-700 border border-orange-200 tabular">
+      <span className="inline-block px-1.5 py-0.5 font-semibold rounded bg-orange-50 text-orange-700 border border-orange-200 tabular">
         D-{days}
       </span>
     );
@@ -651,7 +651,7 @@ function RemainingPill({ start, end }: { start: string; end: string }) {
   const days = daysBetween(todayStr, end);
   if (days < 0) {
     return (
-      <span className="inline-block px-1.5 py-0.5 text-[10.5px] font-semibold rounded bg-zinc-100 text-zinc-500 border border-zinc-200 tabular">
+      <span className="inline-block px-1.5 py-0.5 font-semibold rounded bg-zinc-100 text-zinc-500 border border-zinc-200 tabular">
         만료
       </span>
     );
@@ -664,7 +664,7 @@ function RemainingPill({ start, end }: { start: string; end: string }) {
   // 30일 이내 → 일 단위, 그 외 → 개월
   const label = days <= 60 ? `${days}일` : `${Math.floor(days / 30)}개월`;
   return (
-    <span className={`inline-block px-1.5 py-0.5 text-[10.5px] font-semibold rounded border tabular ${cls}`}>
+    <span className={`inline-block px-1.5 py-0.5 font-semibold rounded border tabular ${cls}`}>
       {label}
     </span>
   );

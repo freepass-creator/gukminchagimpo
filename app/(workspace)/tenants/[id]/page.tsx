@@ -9,7 +9,7 @@ import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
 import { saveTenant } from '@/lib/data';
 import { PageHeader } from '@/components/list/PageHeader';
-import { DataCard, stdTheadCls, thCls } from '@/components/list/DataCard';
+import { DataCard, stdTheadCls, stdTrCls, thCls } from '@/components/list/DataCard';
 import { StateBadge, type BadgeTone } from '@/components/list/StateBadge';
 import { Card, CardBody, CardHeader } from '@/components/Card';
 import { Button } from '@/components/Button';
@@ -152,13 +152,13 @@ export default function TenantDetailPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Link href="/tenants" className="inline-flex items-center gap-1 text-[12px] text-zinc-500 hover:text-zinc-900">
+        <Link href="/tenants" className="inline-flex items-center gap-1 text-zinc-500 hover:text-zinc-900">
           <ArrowLeft className="w-3.5 h-3.5" /> 입주상사 목록
         </Link>
         {bypassGate && (
           <button
             onClick={setPassword}
-            className="ml-auto inline-flex items-center gap-1 px-2.5 h-7 text-[11.5px] border border-zinc-200 rounded-md hover:bg-zinc-50"
+            className="ml-auto inline-flex items-center gap-1 px-2.5 h-7 border border-zinc-200 rounded-md hover:bg-zinc-50"
           >
             <KeyRound className="w-3 h-3" /> {tenant.password ? '비밀번호 변경' : '비밀번호 부여'}
           </button>
@@ -229,42 +229,42 @@ export default function TenantDetailPage() {
                 }).filter((x) => !!x.sec);
                 const parkingRent = sectionInfos.reduce((s, x) => s + x.rent, 0);
                 return (
-                  <tr key={l.id} className="border-b border-zinc-100 last:border-0">
-                    <td className="py-2 px-4 font-mono text-[10.5px] text-zinc-600">{l.id}</td>
-                    <td className="py-2 px-4">
+                  <tr key={l.id} className={stdTrCls}>
+                    <td className="py-2.5 px-4 font-mono text-zinc-600">{l.id}</td>
+                    <td className="py-2.5 px-4">
                       <div className="flex flex-wrap gap-1">
                         {officeStalls.map((s) => (
                           <button
                             key={s.id}
                             onClick={() => goToFloor(s.floor_id)}
-                            className="px-1.5 py-0.5 rounded border text-[11px] font-semibold tabular bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
+                            className="px-1.5 py-0.5 rounded border font-semibold tabular bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100"
                           >
                             {s.code}호
                           </button>
                         ))}
-                        {officeStalls.length === 0 && <span className="text-zinc-300 text-[11px]">—</span>}
+                        {officeStalls.length === 0 && <span className="text-zinc-300">—</span>}
                       </div>
                     </td>
-                    <td className="py-2 px-4">
+                    <td className="py-2.5 px-4">
                       <div className="flex flex-wrap gap-1">
                         {sectionInfos.map(({ sec, count }) => (
                           <button
                             key={sec!.id}
                             onClick={() => goToFloor(sec!.floor_id)}
-                            className="px-1.5 py-0.5 rounded border text-[11px] font-semibold tabular bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
+                            className="px-1.5 py-0.5 rounded border font-semibold tabular bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100"
                           >
                             {sec!.name} {count}면
                           </button>
                         ))}
-                        {sectionInfos.length === 0 && <span className="text-zinc-300 text-[11px]">—</span>}
+                        {sectionInfos.length === 0 && <span className="text-zinc-300">—</span>}
                       </div>
                     </td>
-                    <td className="py-2 px-4 text-center text-[11px] tabular text-zinc-700 whitespace-nowrap">
+                    <td className="py-2.5 px-4 text-center tabular text-zinc-700 whitespace-nowrap">
                       <div>{l.start}</div>
                       <div className="text-zinc-500">~ {l.end}</div>
                     </td>
-                    <td className="py-2 px-4 text-right tabular font-semibold whitespace-nowrap">{fmtMoney(officeRent + parkingRent)}</td>
-                    <td className="py-2 px-4 text-center">
+                    <td className="py-2.5 px-4 text-right tabular font-semibold whitespace-nowrap">{fmtMoney(officeRent + parkingRent)}</td>
+                    <td className="py-2.5 px-4 text-center">
                       <StateBadge tone={
                         l.status === 'active' ? 'green'
                         : l.status === 'terminated' ? 'zinc'
@@ -308,14 +308,14 @@ export default function TenantDetailPage() {
                     onClick={() => setOpenBilling(b.id)}
                     className={`border-b border-zinc-100 last:border-0 hover:bg-zinc-50/80 cursor-pointer ${overdue ? 'bg-red-50/30' : ''}`}
                   >
-                    <td className="py-2 px-4 text-center font-semibold tabular whitespace-nowrap">{b.period}</td>
-                    <td className="py-2 px-4 text-right tabular">{fmtMoney(b.total)}</td>
-                    <td className="py-2 px-4 text-right tabular text-green-700">{paid > 0 ? fmtMoney(paid) : '—'}</td>
-                    <td className={`py-2 px-4 text-right tabular ${o > 0 ? 'text-red-600 font-bold' : 'text-zinc-300'}`}>
+                    <td className="py-2.5 px-4 text-center font-semibold tabular whitespace-nowrap">{b.period}</td>
+                    <td className="py-2.5 px-4 text-right tabular">{fmtMoney(b.total)}</td>
+                    <td className="py-2.5 px-4 text-right tabular text-green-700">{paid > 0 ? fmtMoney(paid) : '—'}</td>
+                    <td className={`py-2.5 px-4 text-right tabular ${o > 0 ? 'text-red-600 font-bold' : 'text-zinc-300'}`}>
                       {o > 0 ? fmtMoney(o) : '—'}
                     </td>
-                    <td className="py-2 px-4 text-center tabular text-zinc-600 whitespace-nowrap">{b.due_date}</td>
-                    <td className="py-2 px-4 text-center">
+                    <td className="py-2.5 px-4 text-center tabular text-zinc-600 whitespace-nowrap">{b.due_date}</td>
+                    <td className="py-2.5 px-4 text-center">
                       <StateBadge tone={o === 0 ? 'green' : overdue ? 'red' : 'yellow'}>
                         {o === 0 ? '완납' : overdue ? '연체' : '미납'}
                       </StateBadge>
@@ -344,13 +344,13 @@ export default function TenantDetailPage() {
               <tr><td colSpan={4} className="text-center py-6 text-zinc-400">매칭 입금 없음</td></tr>
             ) : (
               tenantBankTx.map((tx) => (
-                <tr key={tx.id} className="border-b border-zinc-100 last:border-0">
-                  <td className="py-2 px-4 tabular whitespace-nowrap text-zinc-700">{tx.date}</td>
-                  <td className="py-2 px-4 text-zinc-700">{tx.description}</td>
-                  <td className="py-2 px-4 text-right tabular text-green-700 font-semibold whitespace-nowrap">
+                <tr key={tx.id} className={stdTrCls}>
+                  <td className="py-2.5 px-4 tabular whitespace-nowrap text-zinc-700">{tx.date}</td>
+                  <td className="py-2.5 px-4 text-zinc-700">{tx.description}</td>
+                  <td className="py-2.5 px-4 text-right tabular text-green-700 font-semibold whitespace-nowrap">
                     +{fmtMoney(tx.deposit || 0)}
                   </td>
-                  <td className="py-2 px-4 text-zinc-600 text-[11px] whitespace-nowrap">{tx.category || '—'}</td>
+                  <td className="py-2.5 px-4 text-zinc-600 whitespace-nowrap">{tx.category || '—'}</td>
                 </tr>
               ))
             )}

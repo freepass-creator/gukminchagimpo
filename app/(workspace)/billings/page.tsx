@@ -218,7 +218,7 @@ export default function BillingsPage() {
             <button
               onClick={() => setSelectedPeriod(curPeriod)}
               disabled={selectedPeriod === curPeriod}
-              className={`px-2.5 h-[34px] text-[11.5px] rounded-md border ml-1 ${
+              className={`px-2.5 h-[34px] rounded-md border ml-1 ${
                 selectedPeriod === curPeriod ? 'bg-zinc-100 text-zinc-400 border-zinc-200 cursor-default' : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400'
               }`}
               title="이번 달로 이동"
@@ -258,17 +258,17 @@ export default function BillingsPage() {
                   r.state === 'chronic' ? 'bg-red-50/30' : r.state === 'overdue' ? 'bg-orange-50/20' : ''
                 }`}
               >
-                <td className="py-2 px-4 text-center tabular text-[12px] font-semibold whitespace-nowrap">
+                <td className="py-2.5 px-4 text-center tabular font-semibold whitespace-nowrap">
                   {r.billing.period}
                 </td>
-                <td className="py-2 px-4 whitespace-nowrap">
+                <td className="py-2.5 px-4 whitespace-nowrap">
                   <div className="font-semibold leading-tight">{r.tenant?.name || '?'}</div>
                   <div className="text-[10.5px] text-zinc-500 leading-tight mt-0.5">
                     <span className="tabular">{r.tenant?.biz_no}</span>
                     {r.tenant?.ceo && (<><span className="text-zinc-300"> · </span>{r.tenant.ceo}</>)}
                   </div>
                 </td>
-                <td className="py-2 px-4 text-[11px] text-zinc-600 whitespace-nowrap">
+                <td className="py-2.5 px-4 text-zinc-600 whitespace-nowrap">
                   {r.billing.items.length > 0
                     ? r.billing.items.map((it, i) => (
                         <span key={i}>
@@ -281,10 +281,10 @@ export default function BillingsPage() {
                       ))
                     : '—'}
                 </td>
-                <td className="py-2 px-4 text-right tabular font-semibold whitespace-nowrap">
+                <td className="py-2.5 px-4 text-right tabular font-semibold whitespace-nowrap">
                   {fmtMoney(r.billing.total)}
                 </td>
-                <td className="py-2 px-4 text-right tabular text-green-700 whitespace-nowrap">
+                <td className="py-2.5 px-4 text-right tabular text-green-700 whitespace-nowrap">
                   {(r.billing.paid_amount || 0) > 0 ? (
                     <span>
                       {fmtMoney(r.billing.paid_amount || 0)}
@@ -294,12 +294,12 @@ export default function BillingsPage() {
                     <span className="text-zinc-300">—</span>
                   )}
                 </td>
-                <td className={`py-2 px-4 text-right tabular whitespace-nowrap ${
+                <td className={`py-2.5 px-4 text-right tabular whitespace-nowrap ${
                   r.owe > 0 ? 'text-red-600 font-bold text-[13.5px]' : 'text-zinc-300'
                 }`}>
                   {r.owe > 0 ? fmtMoney(r.owe) : '—'}
                 </td>
-                <td className="py-2 px-4 text-center tabular text-[11.5px] whitespace-nowrap">
+                <td className="py-2.5 px-4 text-center tabular whitespace-nowrap">
                   <span className={r.daysOverdue > 0 ? 'text-red-600 font-semibold' : 'text-zinc-600'}>
                     {r.billing.due_date}
                   </span>
@@ -307,7 +307,7 @@ export default function BillingsPage() {
                     <span className="text-[10px] text-zinc-500 ml-1">D-{r.daysUntilDue}</span>
                   )}
                 </td>
-                <td className="py-2 px-4 text-center tabular whitespace-nowrap">
+                <td className="py-2.5 px-4 text-center tabular whitespace-nowrap">
                   {r.daysOverdue > 0 ? (
                     <span className={`text-[12.5px] font-bold ${r.daysOverdue >= 31 ? 'text-red-600' : 'text-orange-600'}`}>
                       {r.daysOverdue}일
@@ -316,7 +316,7 @@ export default function BillingsPage() {
                     <span className="text-zinc-300">—</span>
                   )}
                 </td>
-                <td className="py-2 px-4 text-center tabular text-[11px] whitespace-nowrap">
+                <td className="py-2.5 px-4 text-center tabular whitespace-nowrap">
                   {r.lastDeposit ? (
                     <span>
                       <span className="text-zinc-700">{r.lastDeposit.date}</span>
@@ -326,14 +326,14 @@ export default function BillingsPage() {
                     <span className="text-zinc-300">—</span>
                   )}
                 </td>
-                <td className="py-2 px-4 text-center">
+                <td className="py-2.5 px-4 text-center">
                   <StateBadge tone={STATE_BADGE[r.state].tone}>{STATE_BADGE[r.state].label}</StateBadge>
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="text-center py-10 text-zinc-400 text-[12px]">
+                <td colSpan={10} className="text-center py-10 text-zinc-400">
                   해당하는 청구건이 없습니다.
                 </td>
               </tr>
