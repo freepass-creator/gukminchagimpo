@@ -30,19 +30,26 @@ export default function TenantDetailPage() {
   // 비밀번호 미설정 시 자동 통과 (관리자가 아직 부여 안 함)
   const noPassword = !tenant?.password;
 
-  // sessionStorage에 인증 기억
+  /** 비밀번호 기반 token — 비밀번호 모르면 sessionStorage 직접 set으로 우회 불가 */
+  function makeAuthToken(tid: string, password: string): string {
+    if (typeof window === 'undefined') return '';
+    return window.btoa(`${tid}:${password}:v1`);
+  }
+
+  // sessionStorage에 인증 기억 (단순 '1'이 아니라 token)
   useEffect(() => {
     if (!tenant) return;
     if (bypassGate || noPassword) { setUnlocked(true); return; }
     const key = `tenant-auth-${tenant.id}`;
-    if (sessionStorage.getItem(key) === '1') setUnlocked(true);
-  }, [tenant?.id, bypassGate, noPassword]);
+    const expected = makeAuthToken(tenant.id, tenant.password || '');
+    if (sessionStorage.getItem(key) === expected) setUnlocked(true);
+  }, [tenant?.id, tenant?.password, bypassGate, noPassword]);
 
   function tryUnlock(e?: React.FormEvent) {
     e?.preventDefault();
     if (!tenant) return;
     if (pw === tenant.password) {
-      sessionStorage.setItem(`tenant-auth-${tenant.id}`, '1');
+      sessionStorage.setItem(`tenant-auth-${tenant.id}`, makeAuthToken(tenant.id, tenant.password));
       setUnlocked(true);
     } else {
       toast.error('비밀번호가 일치하지 않습니다');

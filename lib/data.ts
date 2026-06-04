@@ -66,6 +66,11 @@ async function saveDoc<T extends { id: string }>(colName: string, item: T): Prom
   await setDoc(ref, { ...cleaned, updated_at: serverTimestamp() } as any, { merge: true });
 }
 
+/** Generic update — undefined 값 자동 제거 (Firestore 거부 방지) */
+async function updateDocSafe(colName: string, id: string, patch: any): Promise<void> {
+  await updateDoc(doc(db, colName, id), stripUndefined(patch));
+}
+
 /* ─── Audit log ─── */
 export async function writeAudit(
   log: Omit<AuditLog, 'id' | 'created_at'> & { actor: string }
@@ -80,42 +85,42 @@ export async function writeAudit(
 export const saveStall = (s: Stall) => saveDoc('stalls', s);
 export const removeStall = (id: string) => deleteDoc(doc(db, 'stalls', id));
 export async function updateStall(id: string, patch: Partial<Stall>): Promise<void> {
-  await updateDoc(doc(db, 'stalls', id), patch as any);
+  await updateDocSafe('stalls', id, patch);
 }
 
 /* ─── Floor ─── */
 export const saveFloor = (f: Floor) => saveDoc('floors', f);
 export const removeFloor = (id: string) => deleteDoc(doc(db, 'floors', id));
 export async function updateFloor(id: string, patch: Partial<Floor>): Promise<void> {
-  await updateDoc(doc(db, 'floors', id), patch as any);
+  await updateDocSafe('floors', id, patch);
 }
 
 /* ─── Decor (건물 부속) ─── */
 export const saveDecor = (d: Decor) => saveDoc('decors', d);
 export const removeDecor = (id: string) => deleteDoc(doc(db, 'decors', id));
 export async function updateDecor(id: string, patch: Partial<Decor>): Promise<void> {
-  await updateDoc(doc(db, 'decors', id), patch as any);
+  await updateDocSafe('decors', id, patch);
 }
 
 /* ─── Parking Section ─── */
 export const saveSection = (s: ParkingSection) => saveDoc('parking_sections', s);
 export const removeSection = (id: string) => deleteDoc(doc(db, 'parking_sections', id));
 export async function updateSection(id: string, patch: Partial<ParkingSection>): Promise<void> {
-  await updateDoc(doc(db, 'parking_sections', id), patch as any);
+  await updateDocSafe('parking_sections', id, patch);
 }
 
 /* ─── Bank Transaction ─── */
 export const saveBankTx = (t: BankTransaction) => saveDoc('bank_transactions', t);
 export const removeBankTx = (id: string) => deleteDoc(doc(db, 'bank_transactions', id));
 export async function updateBankTx(id: string, patch: Partial<BankTransaction>): Promise<void> {
-  await updateDoc(doc(db, 'bank_transactions', id), patch as any);
+  await updateDocSafe('bank_transactions', id, patch);
 }
 
 /* ─── Temp Parking Assignment ─── */
 export const saveTempAssignment = (a: TempParkingAssignment) => saveDoc('temp_assignments', a);
 export const removeTempAssignment = (id: string) => deleteDoc(doc(db, 'temp_assignments', id));
 export async function updateTempAssignment(id: string, patch: Partial<TempParkingAssignment>): Promise<void> {
-  await updateDoc(doc(db, 'temp_assignments', id), patch as any);
+  await updateDocSafe('temp_assignments', id, patch);
 }
 
 /* ─── Tenant ─── */
@@ -125,13 +130,38 @@ export const removeTenant = (id: string) => deleteDoc(doc(db, 'tenants', id));
 /* ─── Lease ─── */
 export const saveLease = (l: Lease) => saveDoc('leases', l);
 export async function updateLease(id: string, patch: Partial<Lease>): Promise<void> {
-  await updateDoc(doc(db, 'leases', id), patch as any);
+  await updateDocSafe('leases', id, patch);
 }
 
 /* ─── Billing ─── */
-export const saveBilling = (b: Billing) => saveDoc('billings', b);
+/**
+ * 청구서 저장 — 기존 paid_amount는 자동 보존 (덮어쓰기 시 수납액 손실 방지).
+ * 명시적으로 paid_amount를 변경하려면 updateBilling 사용.
+ */
+export async function saveBilling(b: Billing): Promise<void> {
+  const ref = doc(db, 'billings', b.id);
+  const existing = await getDoc(ref);
+  const existingPaid = existing.exists() ? ((existing.data() as any).paid_amount || 0) : 0;
+  const preserved: Billing = { ...b, paid_amount: Math.max(existingPaid, b.paid_amount || 0) };
+  await saveDoc('billings', preserved);
+}
 export async function updateBilling(id: string, patch: Partial<Billing>): Promise<void> {
-  await updateDoc(doc(db, 'billings', id), patch as any);
+  await updateDocSafe('billings', id, patch);
+}
+/**
+ * 청구 삭제 — 관련 payment.allocations에서 이 billing 배분 제거.
+ * payment 자체는 유지 (다른 billing 배분 또는 미배분 상태로 남음).
+ */
+export async function deleteBillingWithCleanup(billingId: string): Promise<void> {
+  // payment.allocations에서 billing_id 제거
+  const paymentsSnap = await getDocs(col.payments());
+  for (const pd of paymentsSnap.docs) {
+    const p = pd.data() as Payment;
+    if (!p.allocations?.some((a) => a.billing_id === billingId)) continue;
+    const newAllocs = p.allocations.filter((a) => a.billing_id !== billingId);
+    await updateDocSafe('payments', pd.id, { allocations: newAllocs });
+  }
+  await deleteDoc(doc(db, 'billings', billingId));
 }
 
 /* ─── Payment ─── */

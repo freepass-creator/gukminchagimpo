@@ -7,9 +7,7 @@ import { Modal } from './Modal';
 import { Button } from './Button';
 import { useData } from '@/lib/data-context';
 import { useAuth } from '@/lib/auth-context';
-import { updateBilling, savePayment, writeAudit } from '@/lib/data';
-import { doc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { updateBilling, savePayment, writeAudit, deleteBillingWithCleanup } from '@/lib/data';
 import { fmtMoney, fmtDate, daysBetween, newId } from '@/lib/utils';
 import type { Billing, Payment } from '@/lib/types';
 
@@ -133,10 +131,10 @@ export function BillingDetailDialog({ open, onClose, billingId }: Props) {
 
   async function deleteBilling() {
     if (!billing) return;
-    if (!confirm(`${billing.period} 청구를 삭제할까요?\n수납 ${fmtMoney(paid)}원이 있을 경우 별도 환불 처리가 필요합니다.`)) return;
+    if (!confirm(`${billing.period} 청구를 삭제할까요?\n수납 ${fmtMoney(paid)}원이 있다면 payment.allocations에서 함께 제거됩니다 (환불은 별도 처리).`)) return;
     setBusy(true);
     try {
-      await deleteDoc(doc(db, 'billings', billing.id));
+      await deleteBillingWithCleanup(billing.id);
       await writeAudit({
         actor: user?.email || 'unknown',
         type: 'billing_delete',
