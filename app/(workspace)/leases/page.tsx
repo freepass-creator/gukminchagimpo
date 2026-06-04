@@ -13,7 +13,8 @@ import { ListToolbar } from '@/components/list/ListToolbar';
 import { DataCard, stdTheadCls, stdTrCls, thCls, tdCls } from '@/components/list/DataCard';
 import { StateBadge as StdBadge, type BadgeTone } from '@/components/list/StateBadge';
 import { fmtMoney, fmtDate, addDays, daysBetween, fmtFloorLabel } from '@/lib/utils';
-import type { Lease, Stall, Floor, ParkingSection, Tenant } from '@/lib/types';
+import { buildOccupiedStallIds, buildActiveTempsByTenant } from '@/lib/selectors';
+import type { Lease, Stall, Floor, ParkingSection, Tenant, TempParkingAssignment } from '@/lib/types';
 
 type RowKind = 'lease' | 'vacant-office' | 'vacant-section';
 type RowState = 'occupied' | 'vacant' | 'reserved' | 'expiring' | 'overdue';
@@ -73,6 +74,14 @@ export default function LeasesPage() {
   const [openTempAssign, setOpenTempAssign] = useState(false);
   const [filter, setFilter] = useState<FilterValue>('all');
   const [q, setQ] = useState('');
+
+  // page-level Map들 — counts/floorSummaries/RowView 모두 공유
+  const todayStr = fmtDate(today);
+  const occupiedStallIds = useMemo(() => buildOccupiedStallIds(leases, todayStr), [leases, todayStr]);
+  const activeTempsByTenant = useMemo(
+    () => buildActiveTempsByTenant(tempAssignments, todayStr),
+    [tempAssignments, todayStr]
+  );
 
   const rows: Row[] = useMemo(() => {
     const expDays = (config as any).expiring_window_days ?? 30;
@@ -222,14 +231,7 @@ export default function LeasesPage() {
   }, [stalls, sections, leases, byId, index, today, config]);
 
   const counts = useMemo(() => {
-    // 공간 단위 카운트 (실/면)
-    const todayStr = fmtDate(today);
-    const occupiedStallIds = new Set<string>();
-    for (const l of leases) {
-      if (l.status !== 'active') continue;
-      if (l.start > todayStr || l.end < todayStr) continue;
-      l.stall_ids.forEach((id) => occupiedStallIds.add(id));
-    }
+    // 공간 단위 카운트 (실/면) — page-level occupiedStallIds 재사용
     const officeStalls = stalls.filter((s) => s.type === 'office');
     const parkingStalls = stalls.filter((s) => s.type === 'parking');
     const officeOccupied = officeStalls.filter((s) => occupiedStallIds.has(s.id)).length;
@@ -251,7 +253,7 @@ export default function LeasesPage() {
       'parking-vacant': parkingStalls.length - parkingOccupied,
       reserved, expiring, overdue,
     } as Record<string, number>;
-  }, [rows, stalls, leases, today]);
+  }, [rows, stalls, occupiedStallIds]);
 
   // 동·층별 요약: 사무실 X실 중 Y실 / 주차 X면 중 Y면
   const floorSummaries = useMemo(() => {
@@ -259,17 +261,9 @@ export default function LeasesPage() {
       .slice()
       .sort((a, b) => a.building.localeCompare(b.building) || (a.order ?? 0) - (b.order ?? 0))
       .map((f) => {
-        const fStalls = stalls.filter((s) => s.floor_id === f.id);
+        const fStalls = index.stallsByFloor.get(f.id) || [];
         const offices = fStalls.filter((s) => s.type === 'office');
         const parkings = fStalls.filter((s) => s.type === 'parking');
-        // 현재 임대 중인 stall set
-        const occupiedStallIds = new Set<string>();
-        const todayStr = fmtDate(today);
-        for (const l of leases) {
-          if (l.status !== 'active') continue;
-          if (l.start > todayStr || l.end < todayStr) continue;
-          l.stall_ids.forEach((id) => occupiedStallIds.add(id));
-        }
         const officeOccupied = offices.filter((s) => occupiedStallIds.has(s.id)).length;
         const parkingOccupied = parkings.filter((s) => occupiedStallIds.has(s.id)).length;
         return {
@@ -284,7 +278,7 @@ export default function LeasesPage() {
         };
       })
       .filter((s) => s.officeTotal > 0 || s.parkingTotal > 0);
-  }, [floors, stalls, leases, today]);
+  }, [floors, index, occupiedStallIds]);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -373,7 +367,12 @@ export default function LeasesPage() {
           </thead>
           <tbody>
             {filtered.map((r) => (
-              <RowView key={r.key} row={r} onClickLease={(id) => setOpenDetail(id)} />
+              <RowView
+                key={r.key}
+                row={r}
+                onClickLease={(id) => setOpenDetail(id)}
+                activeTempsByTenant={activeTempsByTenant}
+              />
             ))}
             {filtered.length === 0 && (
               <tr>
@@ -398,8 +397,15 @@ export default function LeasesPage() {
   );
 }
 
-function RowView({ row, onClickLease }: { row: Row; onClickLease: (id: string) => void }) {
-  const { today, tempAssignments } = useData();
+function RowView({
+  row,
+  onClickLease,
+  activeTempsByTenant,
+}: {
+  row: Row;
+  onClickLease: (id: string) => void;
+  activeTempsByTenant: Map<string, TempParkingAssignment[]>;
+}) {
   const isVacant = row.state === 'vacant';
   const clickable = !!row.lease;
 
@@ -440,13 +446,7 @@ function RowView({ row, onClickLease }: { row: Row; onClickLease: (id: string) =
             label: `${b.sectionName} ${b.stalls.length}면`,
             sub: b.floorLabel,
           }));
-          // 활성 임시 전시장 (이 상사의 today 시점 활성)
-          const todayStr = fmtDate(today);
-          const activeTemps = tempAssignments.filter(
-            (a) => a.status === 'active'
-              && a.tenant_id === row.lease!.tenant_id
-              && a.start <= todayStr && a.end >= todayStr
-          );
+          const activeTemps = activeTempsByTenant.get(row.lease!.tenant_id) || [];
           const tempCount = activeTemps.reduce((s, a) => s + a.stall_ids.length, 0);
           const tempRent = activeTemps.reduce((s, a) => s + a.rent, 0);
           return (
@@ -502,12 +502,7 @@ function RowView({ row, onClickLease }: { row: Row; onClickLease: (id: string) =
             (s, b) => s + b.stalls.reduce((acc, x) => acc + (x.rent || 0), 0),
             0
           );
-          const todayStr = fmtDate(today);
-          const activeTemps = tempAssignments.filter(
-            (a) => a.status === 'active'
-              && a.tenant_id === row.lease!.tenant_id
-              && a.start <= todayStr && a.end >= todayStr
-          );
+          const activeTemps = activeTempsByTenant.get(row.lease!.tenant_id) || [];
           tempRent = activeTemps.reduce((s, a) => s + a.rent, 0);
         } else if (row.kind === 'vacant-office') {
           officeRent = row.vacantOffice!.rent || 0;

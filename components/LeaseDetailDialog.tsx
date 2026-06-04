@@ -58,8 +58,8 @@ export function LeaseDetailDialog({ open, onClose, leaseId }: Props) {
     .map((id) => byId.stall.get(id))
     .filter((s): s is NonNullable<typeof s> => !!s && s.type === 'parking');
 
-  const bills = billings
-    .filter((b) => b.lease_id === lease.id)
+  const bills = (index.billingsByLease.get(lease.id) || [])
+    .slice()
     .sort((a, b) => a.period.localeCompare(b.period));
   const arrears = bills.reduce((s, b) => s + (b.total - (b.paid_amount || 0)), 0);
   const unpaidBills = bills.filter((b) => b.total - (b.paid_amount || 0) > 0);

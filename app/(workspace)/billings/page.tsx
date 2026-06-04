@@ -14,6 +14,7 @@ import { BillingDetailDialog } from '@/components/BillingDetailDialog';
 import { NewBillingDialog } from '@/components/NewBillingDialog';
 import { saveBilling, writeAudit } from '@/lib/data';
 import { addMonths, fmtMoney, fmtPeriod, fmtDate, daysBetween } from '@/lib/utils';
+import { buildLastDepositByTenant } from '@/lib/selectors';
 import type { Billing, Tenant, BankTransaction } from '@/lib/types';
 
 type BillState = 'paid' | 'partial' | 'unpaid' | 'overdue' | 'chronic';
@@ -65,6 +66,9 @@ export default function BillingsPage() {
     setSelectedPeriod(fmtPeriod(d));
   }
 
+  // 상사별 최근 입금 — 한 번만 빌드 (rows 매번 bankTx 풀스캔 방지)
+  const lastDepositByTenant = useMemo(() => buildLastDepositByTenant(bankTx), [bankTx]);
+
   const rows: Row[] = useMemo(() => {
     return billings.map((b) => {
       const tenant = byId.tenant.get(b.tenant_id);
@@ -82,16 +86,11 @@ export default function BillingsPage() {
       else if (paid > 0) state = 'partial';
       else state = 'unpaid';
 
-      // 해당 상사의 마지막 입금 (이 청구 발행 이후)
-      const deposits = bankTx
-        .filter((tx) => tx.matched_tenant_id === b.tenant_id && tx.deposit > 0)
-        .slice()
-        .sort((a, b) => b.date.localeCompare(a.date));
-      const lastDeposit = deposits[0];
+      const lastDeposit = lastDepositByTenant.get(b.tenant_id);
 
       return { billing: b, tenant, owe, paidRate, daysOverdue, daysUntilDue, lastDeposit, state };
     });
-  }, [billings, bankTx, byId, todayStr]);
+  }, [billings, lastDepositByTenant, byId, todayStr]);
 
   const counts = useMemo(() => {
     const c = { all: rows.length, paid: 0, partial: 0, unpaid: 0, overdue: 0, chronic: 0 };

@@ -16,6 +16,7 @@ import { getStallState } from '@/lib/state';
 import { KPICard } from '@/components/KPICard';
 import { Card, CardHeader, CardBody } from '@/components/Card';
 import { fmtMoney, fmtPeriod, fmtDate, daysBetween, fmtFloorLabel } from '@/lib/utils';
+import { buildArrearsByTenant, buildOccupiedStallIds } from '@/lib/selectors';
 import type { Lease, Floor } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -48,23 +49,14 @@ export default function DashboardPage() {
   const expiring = dedupeLease(states.filter((s) => s.state === 'expiring'));
   const reserved = dedupeLease(states.filter((s) => s.state === 'reserved'));
 
-  const byTenant: Record<string, number> = {};
-  for (const b of billings) {
-    const owe = b.total - (b.paid_amount || 0);
-    if (owe > 0) byTenant[b.tenant_id] = (byTenant[b.tenant_id] || 0) + owe;
-  }
-  const topArrears = Object.entries(byTenant)
+  const arrearsByTenant = buildArrearsByTenant(billings);
+  const topArrears = Array.from(arrearsByTenant.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
   // 단지 미니맵용 — 동별 + 층별 점유 요약
   const todayStr = fmtDate(today);
-  const occupiedStallIds = new Set<string>();
-  for (const l of leases) {
-    if (l.status !== 'active') continue;
-    if (l.start > todayStr || l.end < todayStr) continue;
-    l.stall_ids.forEach((id) => occupiedStallIds.add(id));
-  }
+  const occupiedStallIds = buildOccupiedStallIds(leases, todayStr);
   const buildings = Array.from(new Set(floors.map((f) => f.building))).sort();
   const grouped: Record<string, Floor[]> = {};
   for (const b of buildings) {
@@ -113,7 +105,7 @@ export default function DashboardPage() {
           tone="warn"
           label="미수 잔액 (전체)"
           value={fmtMoney(arrearsAll)}
-          sub={`${Object.keys(byTenant).length}건`}
+          sub={`${arrearsByTenant.size}건`}
         />
         <KPICard
           icon={Home}

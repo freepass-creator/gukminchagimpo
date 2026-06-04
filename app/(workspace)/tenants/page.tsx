@@ -10,7 +10,8 @@ import { PageHeader } from '@/components/list/PageHeader';
 import { ListToolbar } from '@/components/list/ListToolbar';
 import { DataCard, stdTheadCls, thCls } from '@/components/list/DataCard';
 import { StateBadge, type BadgeTone } from '@/components/list/StateBadge';
-import { fmtMoney } from '@/lib/utils';
+import { fmtMoney, fmtDate } from '@/lib/utils';
+import { buildArrearsByTenant, pickActiveLeasesForTenant, pickMoveInOut, tenantMatchesQuery } from '@/lib/selectors';
 
 type TenantFilter = 'all' | 'active' | 'overdue' | 'reserved' | 'inactive';
 
@@ -30,38 +31,32 @@ const STATE_BADGE: Record<Exclude<TenantFilter, 'all'>, { tone: BadgeTone; label
 };
 
 export default function TenantsPage() {
-  const { tenants, leases, billings, stalls, today } = useData();
+  const { tenants, leases, billings, byId, index, today } = useData();
   const router = useRouter();
   const [openUpload, setOpenUpload] = useState(false);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<TenantFilter>('all');
 
+  const todayStr = fmtDate(today);
+  const arrearsByTenant = useMemo(() => buildArrearsByTenant(billings), [billings]);
+
   const enriched = useMemo(() => {
     return tenants.map((t) => {
-      const ts = leases.filter((l) => l.tenant_id === t.id);
-      const active = ts.filter(
-        (l) => l.status === 'active' && new Date(l.start) <= today && new Date(l.end) >= today
-      );
-      const reserved = ts.filter((l) => l.status === 'active' && new Date(l.start) > today);
+      const ts = index.leasesByTenant.get(t.id) || [];
+      const { active, reserved } = pickActiveLeasesForTenant(ts, todayStr);
+      const { moveIn: activeMoveIn, moveOut } = pickMoveInOut(active);
+      const moveIn = activeMoveIn || pickMoveInOut(reserved).moveIn;
 
-      const moveIn = active.length > 0
-        ? active.map((l) => l.start).sort()[0]
-        : reserved.length > 0
-          ? reserved.map((l) => l.start).sort()[0]
-          : null;
-      const moveOut = active.length > 0
-        ? active.map((l) => l.end).sort().reverse()[0]
-        : null;
+      const arrears = arrearsByTenant.get(t.id) || 0;
 
-      const arrears = ts.reduce(
-        (s, l) =>
-          s + billings.filter((b) => b.lease_id === l.id).reduce((s2, b) => s2 + (b.total - (b.paid_amount || 0)), 0),
-        0
-      );
-
-      const allStalls = active.flatMap((l) => l.stall_ids);
-      const officeCnt = allStalls.filter((id) => stalls.find((s) => s.id === id)?.type === 'office').length;
-      const parkingCnt = allStalls.filter((id) => stalls.find((s) => s.id === id)?.type === 'parking').length;
+      let officeCnt = 0, parkingCnt = 0;
+      for (const l of active) {
+        for (const id of l.stall_ids) {
+          const s = byId.stall.get(id);
+          if (s?.type === 'office') officeCnt++;
+          else if (s?.type === 'parking') parkingCnt++;
+        }
+      }
 
       const monthlyTotal = active.reduce((s, l) => s + l.rent_total + l.maint_total, 0);
 
@@ -79,33 +74,28 @@ export default function TenantsPage() {
         monthlyTotal, arrears, state,
       };
     });
-  }, [tenants, leases, billings, stalls, today]);
+  }, [tenants, index, byId, arrearsByTenant, todayStr]);
 
   const filtered = useMemo(() => {
     return enriched
       .filter((x) => {
         if (filter !== 'all' && x.state !== filter) return false;
         if (q) {
-          const k = q.toLowerCase();
-          // 상사 정보
-          if (x.tenant.name.toLowerCase().includes(k)) return true;
-          if (x.tenant.biz_no.includes(q)) return true;
-          if (x.tenant.ceo.includes(q)) return true;
-          if ((x.tenant.phone || '').includes(q)) return true;
-          // 호수 (이 상사의 모든 lease의 사무실 호수)
-          const ts = leases.filter((l) => l.tenant_id === x.tenant.id);
-          const officeCodes = ts
-            .flatMap((l) => l.stall_ids)
-            .map((id) => stalls.find((s) => s.id === id))
-            .filter((s) => s?.type === 'office')
-            .map((s) => s!.code);
-          if (officeCodes.some((c) => c.includes(q))) return true;
+          if (tenantMatchesQuery(x.tenant, q)) return true;
+          // 호수 매칭 (이 상사의 lease 사무실 호수)
+          const ts = index.leasesByTenant.get(x.tenant.id) || [];
+          for (const l of ts) {
+            for (const id of l.stall_ids) {
+              const s = byId.stall.get(id);
+              if (s?.type === 'office' && s.code.includes(q)) return true;
+            }
+          }
           return false;
         }
         return true;
       })
       .sort((a, b) => (a.moveIn || 'zzzz').localeCompare(b.moveIn || 'zzzz'));
-  }, [enriched, filter, q, leases, stalls]);
+  }, [enriched, filter, q, index, byId]);
 
   const counts = useMemo(() => ({
     all: enriched.length,
